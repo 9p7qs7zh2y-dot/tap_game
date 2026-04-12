@@ -4,6 +4,8 @@ import os
 from flask import Flask
 import threading
 import time
+import requests
+import json
 
 # Получаем токен из переменных окружения Render
 BOT_TOKEN = os.environ.get("BOT_TOKEN", "8237220454:AAHIs1zJ_h2db7tbPFu7DJWTpp9_PwoLOls")
@@ -36,6 +38,23 @@ def run_web():
 web_thread = threading.Thread(target=run_web, daemon=True)
 web_thread.start()
 print("🌐 Веб-сервер запущен")
+
+# ===== ОБРАБОТЧИК ДАННЫХ ИЗ МИНИ-ПРИЛОЖЕНИЯ =====
+@bot.message_handler(content_types=['web_app_data'])
+def handle_web_app_data(message):
+    try:
+        data = json.loads(message.web_app_data.data)
+        user_id = message.from_user.id
+        action = data.get('action')
+        
+        if action == 'tap':
+            requests.post(
+                "https://asdfsaf-cd54.onrender.com/api/tap",
+                json={"user_id": user_id, "taps_count": data.get('taps_count', 1)},
+                headers={"Content-Type": "application/json"}
+            )
+    except Exception as e:
+        print(f"⚠️ Ошибка: {e}")
 
 # ===== ОСНОВНОЙ КОД БОТА =====
 # НОВАЯ ССЫЛКА НА RENDER
