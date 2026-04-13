@@ -231,4 +231,4 @@ if __name__ == "__main__":
         except Exception as e:
             print(f"⚠️ Ошибка: {e}")
             print("🔄 Перезапуск через 5 секунд...")
-            time.sleep(5) вот мой бот
+            time.sleep(5)
