@@ -139,32 +139,92 @@ def handle_web_app_data(message):
         
         print(f"📥 Получены данные от {user_id}: {action}")
         
-        # Отвечаем игре (убираем сообщение)
-        try:
-            bot.answer_web_app_query(
-                message.web_app_data.query_id,
-                json.dumps({"status": "ok"})
-            )
-        except Exception as e:
-            print(f"⚠️ Ошибка answer: {e}")
-        
         if action == 'save_all':
-            # Сохраняем ВСЕ данные игрока
+            # ✅ Сохраняем ВСЕ данные игрока
             save_all_player_data(user_id, user_name, data)
             print(f"✅ Сохранены все данные для {user_name}")
             
+            # 📤 Отправляем подтверждение в игру
+            response = {
+                "status": "ok",
+                "message": "Данные сохранены",
+                "saved_at": datetime.now().isoformat()
+            }
+            bot.answer_web_app_query(
+                message.web_app_data.query_id,
+                json.dumps(response)
+            )
+            
         elif action == 'load':
-            # Загружаем данные игрока
+            # 📥 Загружаем данные игрока
             player_data = load_all_player_data(user_id)
+            
             if player_data:
-                # Здесь можно отправить данные обратно в игру
+                # ✅ Данные найдены - отправляем в игру
                 print(f"📊 Данные загружены для {user_name}: {player_data['leaves']}🍃, уровень {player_data['level']}")
+                response = {
+                    "status": "ok",
+                    "data": player_data,
+                    "loaded_at": datetime.now().isoformat()
+                }
             else:
+                # 🆕 Новый игрок - создаём запись с дефолтными значениями
                 print(f"🆕 Новый игрок {user_name}, создаём запись")
-                save_all_player_data(user_id, user_name, {})
+                default_data = {
+                    'leaves': 500,
+                    'stars': 0,
+                    'level': 1,
+                    'exp': 0,
+                    'tap_power': 1,
+                    'energy': 100,
+                    'max_energy': 100,
+                    'total_taps': 0,
+                    'total_leaves': 0,
+                    'daily_streak': 1,
+                    'has_premium': False,
+                    'battles_won': 0,
+                    'last_daily_claim': None,
+                    'last_energy_update': None
+                }
+                save_all_player_data(user_id, user_name, default_data)
+                response = {
+                    "status": "ok",
+                    "data": default_data,
+                    "is_new_player": True,
+                    "loaded_at": datetime.now().isoformat()
+                }
+            
+            # 📤 Отправляем данные в игру
+            bot.answer_web_app_query(
+                message.web_app_data.query_id,
+                json.dumps(response)
+            )
+        
+        else:
+            # ⚠️ Неизвестное действие
+            print(f"⚠️ Неизвестное действие: {action}")
+            response = {
+                "status": "error",
+                "message": f"Неизвестное действие: {action}"
+            }
+            bot.answer_web_app_query(
+                message.web_app_data.query_id,
+                json.dumps(response)
+            )
                 
     except Exception as e:
         print(f"⚠️ Ошибка в handle_web_app_data: {e}")
+        try:
+            response = {
+                "status": "error",
+                "message": str(e)
+            }
+            bot.answer_web_app_query(
+                message.web_app_data.query_id,
+                json.dumps(response)
+            )
+        except Exception as e2:
+            print(f"⚠️ Ошибка отправки ошибки: {e2}")
 
 # ===== ОСНОВНОЙ КОД БОТА =====
 GAME_URL = "https://asdfsaf-cd54.onrender.com/"
