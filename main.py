@@ -1,7 +1,7 @@
 import telebot
 from telebot.types import ReplyKeyboardMarkup, KeyboardButton, WebAppInfo
 import os
-from flask import Flask
+from flask import Flask, request, jsonify
 import threading
 import time
 import json
@@ -70,7 +70,7 @@ def save_all_player_data(user_id, name, data):
     ))
     conn.commit()
     conn.close()
-    print(f"💾 Сохранён игрок {user_id}: {data.get('leaves', 500)}🍃, {data.get('level', 1)}🏆, {data.get('energy', 100)}⚡")
+    print(f"💾 Сохранён игрок {user_id}: {data.get('leaves', 500)}🍃")
 
 def load_all_player_data(user_id):
     conn = sqlite3.connect('koala_quest.db')
@@ -106,7 +106,7 @@ try:
 except Exception as e:
     print(f"⚠️ Ошибка удаления webhook: {e}")
 
-# ===== ВЕБ-СЕРВЕР ДЛЯ RENDER =====
+# ===== ВЕБ-СЕРВЕР С API ДЛЯ ИГРЫ =====
 web_app = Flask(__name__)
 
 @web_app.route('/')
@@ -117,13 +117,71 @@ def health_check():
 def health():
     return {"status": "alive"}, 200
 
+# ⭐ НОВЫЙ API ДЛЯ СОХРАНЕНИЯ ДАННЫХ ИЗ ИГРЫ ⭐
+@web_app.route('/api/player/save', methods=['POST'])
+def api_save_player():
+    try:
+        data = request.get_json()
+        user_id = data.get('user_id')
+        name = data.get('name', 'Player')
+        
+        if not user_id:
+            return jsonify({'error': 'No user_id'}), 400
+        
+        save_all_player_data(user_id, name, data)
+        print(f"✅ API сохранил игрока {user_id}")
+        return jsonify({'status': 'ok'}), 200
+    except Exception as e:
+        print(f"API Error: {e}")
+        return jsonify({'error': str(e)}), 500
+
+# ⭐ НОВЫЙ API ДЛЯ ЗАГРУЗКИ ДАННЫХ ⭐
+@web_app.route('/api/player/<int:user_id>', methods=['GET'])
+def api_load_player(user_id):
+    try:
+        player_data = load_all_player_data(user_id)
+        
+        if player_data:
+            return jsonify(player_data), 200
+        else:
+            # Данные по умолчанию для нового игрока
+            default_data = {
+                'leaves': 500,
+                'stars': 0,
+                'level': 1,
+                'exp': 0,
+                'tap_power': 1,
+                'energy': 100,
+                'max_energy': 100,
+                'total_taps': 0,
+                'total_leaves': 0,
+                'daily_streak': 1,
+                'has_premium': False,
+                'battles_won': 0
+            }
+            return jsonify(default_data), 200
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@web_app.route('/api/player/register', methods=['POST'])
+def api_register_player():
+    try:
+        user_id = request.args.get('user_id')
+        name = request.args.get('name')
+        if user_id and name:
+            save_all_player_data(int(user_id), name, {})
+            return jsonify({'status': 'ok'}), 200
+        return jsonify({'error': 'Missing params'}), 400
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 def run_web():
     web_app.run(host='0.0.0.0', port=int(os.environ.get("PORT", 10000)), threaded=True)
 
 # Запускаем веб-сервер в отдельном потоке
 web_thread = threading.Thread(target=run_web, daemon=True)
 web_thread.start()
-print("🌐 Веб-сервер запущен")
+print("🌐 Веб-сервер с API запущен")
 
 # Инициализируем базу данных
 init_db()
@@ -139,92 +197,24 @@ def handle_web_app_data(message):
         
         print(f"📥 Получены данные от {user_id}: {action}")
         
+        # Просто отвечаем "ок" - без лишних сообщений
+        bot.answer_web_app_query(
+            message.web_app_data.query_id,
+            json.dumps({"status": "ok"})
+        )
+        
         if action == 'save_all':
-            # ✅ Сохраняем ВСЕ данные игрока
             save_all_player_data(user_id, user_name, data)
-            print(f"✅ Сохранены все данные для {user_name}")
-            
-            # 📤 Отправляем подтверждение в игру
-            response = {
-                "status": "ok",
-                "message": "Данные сохранены",
-                "saved_at": datetime.now().isoformat()
-            }
-            bot.answer_web_app_query(
-                message.web_app_data.query_id,
-                json.dumps(response)
-            )
+            print(f"✅ Сохранены данные для {user_name}")
             
         elif action == 'load':
-            # 📥 Загружаем данные игрока
             player_data = load_all_player_data(user_id)
-            
-            if player_data:
-                # ✅ Данные найдены - отправляем в игру
-                print(f"📊 Данные загружены для {user_name}: {player_data['leaves']}🍃, уровень {player_data['level']}")
-                response = {
-                    "status": "ok",
-                    "data": player_data,
-                    "loaded_at": datetime.now().isoformat()
-                }
-            else:
-                # 🆕 Новый игрок - создаём запись с дефолтными значениями
-                print(f"🆕 Новый игрок {user_name}, создаём запись")
-                default_data = {
-                    'leaves': 500,
-                    'stars': 0,
-                    'level': 1,
-                    'exp': 0,
-                    'tap_power': 1,
-                    'energy': 100,
-                    'max_energy': 100,
-                    'total_taps': 0,
-                    'total_leaves': 0,
-                    'daily_streak': 1,
-                    'has_premium': False,
-                    'battles_won': 0,
-                    'last_daily_claim': None,
-                    'last_energy_update': None
-                }
-                save_all_player_data(user_id, user_name, default_data)
-                response = {
-                    "status": "ok",
-                    "data": default_data,
-                    "is_new_player": True,
-                    "loaded_at": datetime.now().isoformat()
-                }
-            
-            # 📤 Отправляем данные в игру
-            bot.answer_web_app_query(
-                message.web_app_data.query_id,
-                json.dumps(response)
-            )
-        
-        else:
-            # ⚠️ Неизвестное действие
-            print(f"⚠️ Неизвестное действие: {action}")
-            response = {
-                "status": "error",
-                "message": f"Неизвестное действие: {action}"
-            }
-            bot.answer_web_app_query(
-                message.web_app_data.query_id,
-                json.dumps(response)
-            )
+            if not player_data:
+                save_all_player_data(user_id, user_name, {})
+                print(f"🆕 Создан новый игрок {user_name}")
                 
     except Exception as e:
         print(f"⚠️ Ошибка в handle_web_app_data: {e}")
-        try:
-            response = {
-                "status": "error",
-                "message": str(e)
-            }
-            bot.answer_web_app_query(
-                message.web_app_data.query_id,
-                json.dumps(response)
-            )
-        except Exception as e2:
-            print(f"⚠️ Ошибка отправки ошибки: {e2}")
 
 # ===== ОСНОВНОЙ КОД БОТА =====
 GAME_URL = "https://asdfsaf-cd54.onrender.com/"
@@ -282,6 +272,7 @@ def handle_other(message):
 if __name__ == "__main__":
     print('✅ Бот-коала запущен!')
     print(f'🎮 Игра доступна по адресу: {GAME_URL}')
+    print(f'📡 API доступен по адресу: {GAME_URL}api/player/')
     
     time.sleep(2)
     
