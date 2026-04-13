@@ -47,23 +47,33 @@ def handle_web_app_data(message):
         user_id = message.from_user.id
         action = data.get('action')
         
+        print(f"📥 Получены данные от {user_id}: {action}")
+        
+        # ⭐⭐⭐ ГЛАВНОЕ: Отвечаем игре, чтобы убрать сообщение ⭐⭐⭐
+        bot.answer_web_app_query(
+            message.web_app_data.query_id,
+            telebot.types.WebAppQueryResult(
+                result=json.dumps({
+                    "status": "ok",
+                    "message": "Данные получены"
+                })
+            )
+        )
+        
         if action == 'tap':
-            requests.post(
+            # Отправляем данные на сервер игры
+            response = requests.post(
                 "https://asdfsaf-cd54.onrender.com/api/tap",
                 json={"user_id": user_id, "taps_count": data.get('taps_count', 1)},
                 headers={"Content-Type": "application/json"}
             )
+            print(f"✅ Тап отправлен на сервер, ответ: {response.status_code}")
+            
     except Exception as e:
-        print(f"⚠️ Ошибка: {e}")
+        print(f"⚠️ Ошибка в handle_web_app_data: {e}")
 
 # ===== ОСНОВНОЙ КОД БОТА =====
-# НОВАЯ ССЫЛКА НА RENDER
 GAME_URL = "https://asdfsaf-cd54.onrender.com/"
-
-game_button = KeyboardButton(
-    text="🐨 Тапать!",
-    web_app=WebAppInfo(url=GAME_URL)
-)
 
 @bot.message_handler(commands=['start'])
 def send_welcome(message):
@@ -77,9 +87,7 @@ def send_welcome(message):
 🐨 Соревноваться
 🐨 Прокачивать коалу
 
-Присоединяйся и нажимай «Старт», чтобы начать тапать!
-
-✅ Нажми на кнопку ниже, чтобы играть"""
+✅ Нажми на кнопку ниже, чтобы начать играть!"""
 
     play_button = KeyboardButton(
         text="🐨 Играть",
@@ -110,17 +118,19 @@ def handle_other(message):
 Нажми на кнопку ниже, чтобы начать тапать!"""
     
     keyboard = ReplyKeyboardMarkup(resize_keyboard=True)
-    keyboard.add(game_button)
+    keyboard.add(KeyboardButton(
+        text="🐨 Играть",
+        web_app=WebAppInfo(url=GAME_URL)
+    ))
     
     bot.send_message(message.chat.id, response, reply_markup=keyboard)
 
 if __name__ == "__main__":
     print('✅ Бот-коала запущен!')
+    print(f'🎮 Игра доступна по адресу: {GAME_URL}')
     
-    # Дополнительная задержка перед запуском polling
     time.sleep(2)
     
-    # Запускаем polling с обработкой ошибок
     while True:
         try:
             bot.infinity_polling(skip_pending=True, timeout=60)
