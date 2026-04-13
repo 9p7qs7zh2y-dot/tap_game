@@ -1,5 +1,5 @@
 import telebot
-from telebot.types import ReplyKeyboardMarkup, KeyboardButton, WebAppInfo, WebAppQueryResult
+from telebot.types import ReplyKeyboardMarkup, KeyboardButton, WebAppInfo
 import os
 from flask import Flask
 import threading
@@ -41,6 +41,7 @@ def save_player(user_id, name, leaves, total_taps):
     ''', (user_id, name, leaves, total_taps, leaves, datetime.now()))
     conn.commit()
     conn.close()
+    print(f"💾 Сохранён игрок {user_id}: {leaves} листьев")
 
 def load_player(user_id):
     conn = sqlite3.connect('koala_quest.db')
@@ -85,50 +86,88 @@ def handle_web_app_data(message):
         
         print(f"📥 Получены данные от {user_id}: {action}")
         
-        # Отвечаем игре (убираем сообщение)
-        bot.answer_web_app_query(
-            message.web_app_data.query_id,
-            WebAppQueryResult(result=json.dumps({"status": "ok"}))
-        )
+        # ⭐⭐⭐ ОТВЕЧАЕМ ИГРЕ (убираем сообщение) ⭐⭐⭐
+        try:
+            bot.answer_web_app_query(
+                message.web_app_data.query_id,
+                json.dumps({"status": "ok"})
+            )
+        except Exception as e:
+            print(f"⚠️ Ошибка answer_web_app_query: {e}")
         
         if action == 'tap':
             player = load_player(user_id)
             if player:
                 new_leaves = player[2] + data.get('gain', 1)
-                new_taps = player[5] + 1
+                new_taps = player[6] + 1
             else:
                 new_leaves = 500 + data.get('gain', 1)
                 new_taps = 1
             
             save_player(user_id, user_name, new_leaves, new_taps)
-            print(f"✅ Сохранено: {user_name} - {new_leaves} листьев")
+            print(f"✅ Сохранено: {user_name} - {new_leaves} листьев, {new_taps} тапов")
             
     except Exception as e:
-        print(f"⚠️ Ошибка: {e}")
+        print(f"⚠️ Ошибка в handle_web_app_data: {e}")
 
 # Команды бота
 GAME_URL = "https://asdfsaf-cd54.onrender.com/"
 
 @bot.message_handler(commands=['start'])
 def send_welcome(message):
+    welcome_text = """🐨 KOALA × TAP × KOALA
+
+🍃 Факт о коалах:
+Коалы спят до 22 часов в день!
+
+✅ Нажми на кнопку ниже, чтобы начать играть!
+📊 Твой прогресс будет сохраняться!"""
+
+    play_button = KeyboardButton(
+        text="🐨 Играть",
+        web_app=WebAppInfo(url=GAME_URL)
+    )
+    
     keyboard = ReplyKeyboardMarkup(resize_keyboard=True)
-    keyboard.add(KeyboardButton(text="🐨 Играть", web_app=WebAppInfo(url=GAME_URL)))
-    bot.send_message(message.chat.id, "🐨 Нажми на кнопку, чтобы начать играть!", reply_markup=keyboard)
+    keyboard.add(play_button)
+    
+    bot.send_message(message.chat.id, welcome_text, reply_markup=keyboard)
+
+@bot.message_handler(commands=['help'])
+def send_help(message):
+    help_text = """📚 Доступные команды:
+
+/start - начать игру
+/help - эта справка
+
+💡 Просто нажми «🐨 Играть» и тапай по коале!"""
+    
+    bot.send_message(message.chat.id, help_text)
 
 @bot.message_handler(func=lambda message: True)
 def handle_other(message):
+    response = f"""🍃 Привет, {message.from_user.first_name}!
+
+Нажми на кнопку ниже, чтобы начать тапать!"""
+    
     keyboard = ReplyKeyboardMarkup(resize_keyboard=True)
-    keyboard.add(KeyboardButton(text="🐨 Играть", web_app=WebAppInfo(url=GAME_URL)))
-    bot.send_message(message.chat.id, f"🍃 Привет, {message.from_user.first_name}! Нажми на кнопку, чтобы тапать!", reply_markup=keyboard)
+    keyboard.add(KeyboardButton(
+        text="🐨 Играть",
+        web_app=WebAppInfo(url=GAME_URL)
+    ))
+    
+    bot.send_message(message.chat.id, response, reply_markup=keyboard)
 
 if __name__ == "__main__":
-    print('✅ Бот запущен!')
+    print('✅ Бот-коала запущен!')
+    print(f'🎮 Игра доступна по адресу: {GAME_URL}')
+    
+    time.sleep(2)
+    
     while True:
         try:
             bot.infinity_polling(skip_pending=True, timeout=60)
         except Exception as e:
-            print(f"⚠️ Ошибка: {e}")
-            time.sleep(5)
-            print(f"⚠️ Ошибка: {e}")
+            print(f"⚠️ Ошибка polling: {e}")
             print("🔄 Перезапуск через 5 секунд...")
             time.sleep(5)
