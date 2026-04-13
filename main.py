@@ -1,5 +1,5 @@
 import telebot
-from telebot.types import ReplyKeyboardMarkup, KeyboardButton, WebAppInfo
+from telebot.types import ReplyKeyboardMarkup, KeyboardButton, WebAppInfo, WebAppQueryResult  # ← ДОБАВИЛ WebAppQueryResult
 import os
 from flask import Flask
 import threading
@@ -49,13 +49,12 @@ def handle_web_app_data(message):
         
         print(f"📥 Получены данные от {user_id}: {action}")
         
-        # ⭐⭐⭐ ГЛАВНОЕ: Отвечаем игре, чтобы убрать сообщение ⭐⭐⭐
+        # ⭐⭐⭐ ЭТО УБИРАЕТ СООБЩЕНИЕ "ВЫ УСПЕШНО ПЕРЕДАЛИ ДАННЫЕ" ⭐⭐⭐
         bot.answer_web_app_query(
             message.web_app_data.query_id,
-            telebot.types.WebAppQueryResult(
+            WebAppQueryResult(
                 result=json.dumps({
-                    "status": "ok",
-                    "message": "Данные получены"
+                    "status": "ok"
                 })
             )
         )
@@ -65,7 +64,8 @@ def handle_web_app_data(message):
             response = requests.post(
                 "https://asdfsaf-cd54.onrender.com/api/tap",
                 json={"user_id": user_id, "taps_count": data.get('taps_count', 1)},
-                headers={"Content-Type": "application/json"}
+                headers={"Content-Type": "application/json"},
+                timeout=5
             )
             print(f"✅ Тап отправлен на сервер, ответ: {response.status_code}")
             
@@ -81,11 +81,6 @@ def send_welcome(message):
 
 🍃 Факт о коалах:
 Коалы спят до 22 часов в день — они настоящие эксперты по энергосбережению.
-
-Что умеет этот бот?
-🐨 Кормить эвкалиптом
-🐨 Соревноваться
-🐨 Прокачивать коалу
 
 ✅ Нажми на кнопку ниже, чтобы начать играть!"""
 
