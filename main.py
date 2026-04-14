@@ -5,7 +5,6 @@ from flask import Flask, request, jsonify
 import json
 import sqlite3
 from datetime import datetime
-import requests
 
 # Получаем токен из переменных окружения Render
 BOT_TOKEN = os.environ.get("BOT_TOKEN", "8237220454:AAHIs1zJ_h2db7tbPFu7DJWTpp9_PwoLOls")
@@ -103,6 +102,12 @@ def load_all_player_data(user_id):
 # Инициализируем базу данных
 init_db()
 
+# ===== КЛАВИАТУРА =====
+def get_main_keyboard():
+    keyboard = ReplyKeyboardMarkup(resize_keyboard=True)
+    keyboard.add(KeyboardButton(text="🐨 Играть", web_app=WebAppInfo(url=GAME_URL)))
+    return keyboard
+
 # ===== ОБРАБОТЧИКИ БОТА =====
 
 @bot.message_handler(commands=['start'])
@@ -117,36 +122,31 @@ def send_welcome(message):
 🐨 Соревноваться
 🐨 Прокачивать коалу
 
-✅ Используй команду /play чтобы начать играть!"""
-    
-    bot.send_message(message.chat.id, welcome_text)
+Присоединяйся и нажимай «Старт», чтобы начать тапать!
 
-@bot.message_handler(commands=['play'])
-def play_game(message):
-    keyboard = ReplyKeyboardMarkup(resize_keyboard=True)
-    keyboard.add(KeyboardButton(text="🎮 Открыть игру", web_app=WebAppInfo(url=GAME_URL)))
-    bot.send_message(message.chat.id, "Нажми на кнопку, чтобы открыть игру:", reply_markup=keyboard)
+✅ Нажми на кнопку ниже, чтобы играть"""
+    
+    bot.send_message(message.chat.id, welcome_text, reply_markup=get_main_keyboard())
 
 @bot.message_handler(commands=['help'])
 def send_help(message):
     help_text = """📚 Доступные команды:
 
-/start - приветствие
-/play - открыть игру
+/start - начать игру с коалами
 /help - эта справка
 
-💡 Используй /play чтобы начать игру!"""
+💡 Просто нажми «🐨 Играть» и тапай по коале!"""
     
-    bot.send_message(message.chat.id, help_text)
+    bot.send_message(message.chat.id, help_text, reply_markup=get_main_keyboard())
 
 @bot.message_handler(func=lambda message: True)
 def handle_other(message):
     response = f"""🍃 Добро пожаловать, {message.from_user.first_name}!
 
 Твоя коала уже ждёт эвкалипт.
-Используй команду /play чтобы начать играть!"""
+Нажми на кнопку ниже, чтобы начать тапать!"""
     
-    bot.send_message(message.chat.id, response)
+    bot.send_message(message.chat.id, response, reply_markup=get_main_keyboard())
 
 # ===== FLASK ПРИЛОЖЕНИЕ =====
 app = Flask(__name__)
