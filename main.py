@@ -1,9 +1,6 @@
 import telebot
 from telebot.types import ReplyKeyboardMarkup, KeyboardButton, WebAppInfo
 import os
-from flask import Flask, request, jsonify
-import threading
-import time
 import json
 import sqlite3
 from datetime import datetime
@@ -11,16 +8,9 @@ import requests
 
 # Получаем токен из переменных окружения Render
 BOT_TOKEN = os.environ.get("BOT_TOKEN", "8237220454:AAHIs1zJ_h2db7tbPFu7DJWTpp9_PwoLOls")
+GAME_URL = "https://asdfsaf-cd54.onrender.com/"
 
-# ⭐⭐⭐ ПРИНУДИТЕЛЬНЫЙ СБРОС ВЕБХУКА ПЕРЕД СОЗДАНИЕМ БОТА ⭐⭐⭐
-try:
-    requests.get(f'https://api.telegram.org/bot{BOT_TOKEN}/deleteWebhook')
-    print("✅ Вебхук удалён через API")
-except Exception as e:
-    print(f"⚠️ Ошибка удаления вебхука: {e}")
-
-time.sleep(2)
-
+# Создаем бота
 bot = telebot.TeleBot(BOT_TOKEN)
 
 # ===== БАЗА ДАННЫХ =====
@@ -108,165 +98,10 @@ def load_all_player_data(user_id):
         }
     return None
 
-# ===== ВЕБ-СЕРВЕР С API ДЛЯ ИГРЫ =====
-web_app = Flask(__name__)
-
-@web_app.route('/')
-def health_check():
-    return "OK", 200
-
-@web_app.route('/health')
-def health():
-    return {"status": "alive"}, 200
-
-@web_app.route('/api/player/save', methods=['POST'])
-def api_save_player():
-    try:
-        data = request.get_json()
-        user_id = data.get('user_id')
-        name = data.get('name', 'Player')
-        
-        print(f"📥 API сохранение: user_id={user_id}, leaves={data.get('leaves')}")
-        
-        if not user_id:
-            return jsonify({'error': 'No user_id'}), 400
-        
-        save_all_player_data(user_id, name, data)
-        print(f"✅ API сохранил игрока {user_id}")
-        return jsonify({'status': 'ok'}), 200
-    except Exception as e:
-        print(f"API Error: {e}")
-        return jsonify({'error': str(e)}), 500
-
-@web_app.route('/api/player/<int:user_id>', methods=['GET'])
-def api_load_player(user_id):
-    try:
-        player_data = load_all_player_data(user_id)
-        
-        if player_data:
-            print(f"📤 API загрузил игрока {user_id}: {player_data['leaves']}🍃")
-            return jsonify(player_data), 200
-        else:
-            default_data = {
-                'leaves': 500,
-                'stars': 0,
-                'level': 1,
-                'exp': 0,
-                'tap_power': 1,
-                'energy': 100,
-                'max_energy': 100,
-                'total_taps': 0,
-                'total_leaves': 0,
-                'daily_streak': 1,
-                'has_premium': False,
-                'battles_won': 0
-            }
-            print(f"🆕 Новый игрок {user_id}, возвращаем данные по умолчанию")
-            return jsonify(default_data), 200
-    except Exception as e:
-        print(f"API Load Error: {e}")
-        return jsonify({'error': str(e)}), 500
-
-@web_app.route('/api/player/register', methods=['POST', 'GET'])
-def api_register_player():
-    try:
-        # Пробуем получить данные из JSON (для POST)
-        if request.is_json:
-            data = request.get_json()
-            user_id = data.get('user_id')
-            name = data.get('name', 'Игрок')
-            print(f"📝 POST регистрация: {user_id} ({name})")
-        else:
-            # Фолбек на GET параметры (для обратной совместимости)
-            user_id = request.args.get('user_id')
-            name = request.args.get('name', 'Игрок')
-            print(f"📝 GET регистрация: {user_id} ({name})")
-        
-        if not user_id:
-            print("❌ Ошибка: нет user_id")
-            return jsonify({'error': 'No user_id'}), 400
-        
-        # Конвертируем в int
-        user_id = int(user_id)
-        name = str(name)
-        
-        print(f"✅ Регистрация игрока: {user_id} ({name})")
-        
-        # Проверяем существует ли уже
-        existing = load_all_player_data(user_id)
-        if existing:
-            print(f"ℹ️ Игрок {user_id} уже существует")
-            return jsonify({'status': 'already_exists'}), 200
-        
-        # Создаем нового игрока с дефолтными данными
-        default_data = {
-            'leaves': 500,
-            'stars': 0,
-            'level': 1,
-            'exp': 0,
-            'tap_power': 1,
-            'energy': 100,
-            'max_energy': 100,
-            'total_taps': 0,
-            'total_leaves': 0,
-            'daily_streak': 1,
-            'has_premium': False,
-            'battles_won': 0,
-            'last_daily_claim': None,
-            'last_energy_update': datetime.now().isoformat()
-        }
-        
-        save_all_player_data(user_id, name, default_data)
-        print(f"✅ Новый игрок {user_id} создан")
-        
-        return jsonify({'status': 'ok'}), 200
-        
-    except Exception as e:
-        print(f"❌ Ошибка регистрации: {e}")
-        return jsonify({'error': str(e)}), 500
-
-def run_web():
-    web_app.run(host='0.0.0.0', port=int(os.environ.get("PORT", 10000)), threaded=True)
-
-# Запускаем веб-сервер в отдельном потоке
-web_thread = threading.Thread(target=run_web, daemon=True)
-web_thread.start()
-print("🌐 Веб-сервер с API запущен")
-
 # Инициализируем базу данных
 init_db()
 
-# ===== ОБРАБОТЧИК ДАННЫХ ИЗ МИНИ-ПРИЛОЖЕНИЯ =====
-@bot.message_handler(content_types=['web_app_data'])
-def handle_web_app_data(message):
-    try:
-        data = json.loads(message.web_app_data.data)
-        user_id = message.from_user.id
-        user_name = message.from_user.first_name
-        action = data.get('action')
-        
-        print(f"📥 Получены данные от {user_id}: {action}")
-        
-        bot.answer_web_app_query(
-            message.web_app_data.query_id,
-            json.dumps({"status": "ok"})
-        )
-        
-        if action == 'save_all':
-            save_all_player_data(user_id, user_name, data)
-            print(f"✅ Сохранены все данные для {user_name}")
-            
-        elif action == 'load':
-            player_data = load_all_player_data(user_id)
-            if not player_data:
-                save_all_player_data(user_id, user_name, {})
-                print(f"🆕 Новый игрок {user_name}")
-                
-    except Exception as e:
-        print(f"⚠️ Ошибка в handle_web_app_data: {e}")
-
-# ===== ОСНОВНОЙ КОД БОТА =====
-GAME_URL = "https://asdfsaf-cd54.onrender.com/"
+# ===== ОБРАБОТЧИКИ БОТА =====
 
 @bot.message_handler(commands=['start'])
 def send_welcome(message):
@@ -311,37 +146,107 @@ def handle_other(message):
     
     bot.send_message(message.chat.id, response)
 
+# ===== WEBHOOK HANDLER (вместо Flask) =====
+def handle_webhook(request_data):
+    """Обрабатывает запросы от игры (как Flask, но внутри бота)"""
+    try:
+        path = request_data.get('path', '/')
+        method = request_data.get('method', 'GET')
+        body = request_data.get('body', {})
+        query = request_data.get('query', {})
+        
+        print(f"📡 Webhook: {method} {path}")
+        
+        # API: Сохранение игрока
+        if path == '/api/player/save' and method == 'POST':
+            user_id = body.get('user_id')
+            name = body.get('name', 'Player')
+            
+            if not user_id:
+                return {'status': 'error', 'message': 'No user_id'}, 400
+            
+            save_all_player_data(user_id, name, body)
+            return {'status': 'ok'}, 200
+        
+        # API: Загрузка игрока
+        elif path.startswith('/api/player/') and method == 'GET':
+            user_id = int(path.split('/')[-1])
+            player_data = load_all_player_data(user_id)
+            
+            if player_data:
+                return player_data, 200
+            else:
+                return {
+                    'leaves': 500, 'stars': 0, 'level': 1, 'exp': 0,
+                    'tap_power': 1, 'energy': 100, 'max_energy': 100,
+                    'total_taps': 0, 'total_leaves': 0, 'daily_streak': 1,
+                    'has_premium': False, 'battles_won': 0
+                }, 200
+        
+        # API: Регистрация игрока
+        elif path == '/api/player/register' and method == 'POST':
+            user_id = body.get('user_id')
+            name = body.get('name', 'Игрок')
+            
+            if not user_id:
+                return {'status': 'error', 'message': 'No user_id'}, 400
+            
+            existing = load_all_player_data(int(user_id))
+            if existing:
+                return {'status': 'already_exists'}, 200
+            
+            save_all_player_data(int(user_id), name, {})
+            return {'status': 'ok'}, 200
+        
+        # Health check
+        elif path == '/' or path == '/health':
+            return {'status': 'ok'}, 200
+        
+        else:
+            return {'status': 'error', 'message': f'Unknown path: {path}'}, 404
+            
+    except Exception as e:
+        print(f"❌ Webhook error: {e}")
+        return {'status': 'error', 'message': str(e)}, 500
+
+# Регистрируем webhook handler
+bot.set_webhook_handler(handle_webhook)
+
 # ===== ЗАПУСК =====
 if __name__ == "__main__":
-    print('🛑 Останавливаем все предыдущие подключения...')
+    print('🚀 Запуск бота через Webhook...')
     
-    # Ещё раз удаляем вебхук перед запуском
-    try:
-        requests.get(f'https://api.telegram.org/bot{BOT_TOKEN}/deleteWebhook')
-        print("✅ Вебхук удалён перед запуском")
-    except:
-        pass
+    # Удаляем старый вебхук
+    bot.remove_webhook()
+    time.sleep(1)
     
-    try:
-        bot.remove_webhook()
-        print("✅ Webhook удалён через bot")
-    except:
-        pass
+    # Устанавливаем новый вебхук на Render URL
+    RENDER_URL = os.environ.get("RENDER_EXTERNAL_URL", GAME_URL.rstrip('/'))
+    webhook_url = f"{RENDER_URL}/webhook"
     
-    time.sleep(2)
-    
-    print('✅ Бот-коала запущен!')
+    bot.set_webhook(url=webhook_url)
+    print(f'✅ Webhook установлен: {webhook_url}')
     print(f'🎮 Игра доступна по адресу: {GAME_URL}')
-    print(f'📡 API доступен по адресу: {GAME_URL}api/player/')
     
-    # ⭐ ЗАПУСК БЕЗ ПРОБЛЕМНОГО ПАРАМЕТРА ⭐
-    while True:
-        try:
-            bot.infinity_polling(
-                skip_pending=True,
-                timeout=60
-            )
-        except Exception as e:
-            print(f"⚠️ Ошибка: {e}")
-            print("🔄 Перезапуск через 10 секунд...")
-            time.sleep(10)
+    # Запускаем Flask-совместимый сервер для Render
+    from flask import Flask, request as flask_request
+    
+    app = Flask(__name__)
+    
+    @app.route('/webhook', methods=['POST'])
+    def webhook():
+        update = flask_request.get_json()
+        if update:
+            bot.process_new_updates([telebot.types.Update.de_json(update)])
+        return 'OK', 200
+    
+    @app.route('/', methods=['GET', 'POST', 'HEAD'])
+    def catch_all():
+        return 'OK', 200
+    
+    @app.route('/api/player/<path:subpath>', methods=['GET', 'POST'])
+    def api_catch_all(subpath):
+        return 'OK', 200
+    
+    port = int(os.environ.get("PORT", 10000))
+    app.run(host='0.0.0.0', port=port)
