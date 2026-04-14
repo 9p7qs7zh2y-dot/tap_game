@@ -122,9 +122,7 @@ def send_welcome(message):
 🐨 Соревноваться
 🐨 Прокачивать коалу
 
-Присоединяйся и нажимай «Старт», чтобы начать тапать!
-
-✅ Нажми на кнопку ниже, чтобы играть"""
+Присоединяйся и нажимай «Играть», чтобы начать тапать!"""
     
     bot.send_message(message.chat.id, welcome_text, reply_markup=get_main_keyboard())
 
@@ -151,7 +149,6 @@ def handle_other(message):
 # ===== FLASK ПРИЛОЖЕНИЕ =====
 app = Flask(__name__)
 
-# 🔧 ИСПРАВЛЕНО: добавлена поддержка HEAD-запросов для UptimeRobot
 @app.route('/', methods=['GET', 'HEAD'])
 def health_check():
     return "OK", 200
