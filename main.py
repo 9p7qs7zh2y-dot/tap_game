@@ -7,7 +7,7 @@ import time
 import json
 import sqlite3
 from datetime import datetime
-import requests  # ⭐ ДОБАВЛЕНО
+import requests
 
 # Получаем токен из переменных окружения Render
 BOT_TOKEN = os.environ.get("BOT_TOKEN", "8237220454:AAHIs1zJ_h2db7tbPFu7DJWTpp9_PwoLOls")
@@ -119,7 +119,6 @@ def health_check():
 def health():
     return {"status": "alive"}, 200
 
-# ⭐ API ДЛЯ СОХРАНЕНИЯ ДАННЫХ ⭐
 @web_app.route('/api/player/save', methods=['POST'])
 def api_save_player():
     try:
@@ -139,7 +138,6 @@ def api_save_player():
         print(f"API Error: {e}")
         return jsonify({'error': str(e)}), 500
 
-# ⭐ API ДЛЯ ЗАГРУЗКИ ДАННЫХ ⭐
 @web_app.route('/api/player/<int:user_id>', methods=['GET'])
 def api_load_player(user_id):
     try:
@@ -149,7 +147,6 @@ def api_load_player(user_id):
             print(f"📤 API загрузил игрока {user_id}: {player_data['leaves']}🍃")
             return jsonify(player_data), 200
         else:
-            # Данные по умолчанию для нового игрока
             default_data = {
                 'leaves': 500,
                 'stars': 0,
@@ -204,7 +201,6 @@ def handle_web_app_data(message):
         
         print(f"📥 Получены данные от {user_id}: {action}")
         
-        # Отвечаем игре
         bot.answer_web_app_query(
             message.web_app_data.query_id,
             json.dumps({"status": "ok"})
@@ -273,7 +269,7 @@ def handle_other(message):
 if __name__ == "__main__":
     print('🛑 Останавливаем все предыдущие подключения...')
     
-    # ⭐ ЕЩЁ РАЗ УДАЛЯЕМ ВЕБХУК ПЕРЕД ЗАПУСКОМ ⭐
+    # Ещё раз удаляем вебхук перед запуском
     try:
         requests.get(f'https://api.telegram.org/bot{BOT_TOKEN}/deleteWebhook')
         print("✅ Вебхук удалён перед запуском")
@@ -292,13 +288,12 @@ if __name__ == "__main__":
     print(f'🎮 Игра доступна по адресу: {GAME_URL}')
     print(f'📡 API доступен по адресу: {GAME_URL}api/player/')
     
-    # ⭐ ЗАПУСК С ПРАВИЛЬНЫМИ ПАРАМЕТРАМИ ⭐
+    # ⭐ ЗАПУСК БЕЗ ПРОБЛЕМНОГО ПАРАМЕТРА ⭐
     while True:
         try:
             bot.infinity_polling(
                 skip_pending=True,
-                timeout=60,
-                restart_on_true=True
+                timeout=60
             )
         except Exception as e:
             print(f"⚠️ Ошибка: {e}")
