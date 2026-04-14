@@ -151,11 +151,12 @@ def handle_other(message):
 # ===== FLASK ПРИЛОЖЕНИЕ =====
 app = Flask(__name__)
 
-@app.route('/')
+# 🔧 ИСПРАВЛЕНО: добавлена поддержка HEAD-запросов для UptimeRobot
+@app.route('/', methods=['GET', 'HEAD'])
 def health_check():
     return "OK", 200
 
-@app.route('/health')
+@app.route('/health', methods=['GET', 'HEAD'])
 def health():
     return {"status": "alive"}, 200
 
