@@ -167,16 +167,62 @@ def api_load_player(user_id):
         print(f"API Load Error: {e}")
         return jsonify({'error': str(e)}), 500
 
-@web_app.route('/api/player/register', methods=['POST'])
+@web_app.route('/api/player/register', methods=['POST', 'GET'])
 def api_register_player():
     try:
-        user_id = request.args.get('user_id')
-        name = request.args.get('name')
-        if user_id and name:
-            save_all_player_data(int(user_id), name, {})
-            return jsonify({'status': 'ok'}), 200
-        return jsonify({'error': 'Missing params'}), 400
+        # Пробуем получить данные из JSON (для POST)
+        if request.is_json:
+            data = request.get_json()
+            user_id = data.get('user_id')
+            name = data.get('name', 'Игрок')
+            print(f"📝 POST регистрация: {user_id} ({name})")
+        else:
+            # Фолбек на GET параметры (для обратной совместимости)
+            user_id = request.args.get('user_id')
+            name = request.args.get('name', 'Игрок')
+            print(f"📝 GET регистрация: {user_id} ({name})")
+        
+        if not user_id:
+            print("❌ Ошибка: нет user_id")
+            return jsonify({'error': 'No user_id'}), 400
+        
+        # Конвертируем в int
+        user_id = int(user_id)
+        name = str(name)
+        
+        print(f"✅ Регистрация игрока: {user_id} ({name})")
+        
+        # Проверяем существует ли уже
+        existing = load_all_player_data(user_id)
+        if existing:
+            print(f"ℹ️ Игрок {user_id} уже существует")
+            return jsonify({'status': 'already_exists'}), 200
+        
+        # Создаем нового игрока с дефолтными данными
+        default_data = {
+            'leaves': 500,
+            'stars': 0,
+            'level': 1,
+            'exp': 0,
+            'tap_power': 1,
+            'energy': 100,
+            'max_energy': 100,
+            'total_taps': 0,
+            'total_leaves': 0,
+            'daily_streak': 1,
+            'has_premium': False,
+            'battles_won': 0,
+            'last_daily_claim': None,
+            'last_energy_update': datetime.now().isoformat()
+        }
+        
+        save_all_player_data(user_id, name, default_data)
+        print(f"✅ Новый игрок {user_id} создан")
+        
+        return jsonify({'status': 'ok'}), 200
+        
     except Exception as e:
+        print(f"❌ Ошибка регистрации: {e}")
         return jsonify({'error': str(e)}), 500
 
 def run_web():
