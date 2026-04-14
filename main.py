@@ -7,9 +7,19 @@ import time
 import json
 import sqlite3
 from datetime import datetime
+import requests  # ⭐ ДОБАВЛЕНО
 
 # Получаем токен из переменных окружения Render
 BOT_TOKEN = os.environ.get("BOT_TOKEN", "8237220454:AAHIs1zJ_h2db7tbPFu7DJWTpp9_PwoLOls")
+
+# ⭐⭐⭐ ПРИНУДИТЕЛЬНЫЙ СБРОС ВЕБХУКА ПЕРЕД СОЗДАНИЕМ БОТА ⭐⭐⭐
+try:
+    requests.get(f'https://api.telegram.org/bot{BOT_TOKEN}/deleteWebhook')
+    print("✅ Вебхук удалён через API")
+except Exception as e:
+    print(f"⚠️ Ошибка удаления вебхука: {e}")
+
+time.sleep(2)
 
 bot = telebot.TeleBot(BOT_TOKEN)
 
@@ -97,14 +107,6 @@ def load_all_player_data(user_id):
             'last_energy_update': row[15]
         }
     return None
-
-# ===== ПРИНУДИТЕЛЬНЫЙ СБРОС WEBHOOK =====
-try:
-    bot.remove_webhook()
-    time.sleep(1)
-    print("✅ Webhook удалён")
-except Exception as e:
-    print(f"⚠️ Ошибка удаления webhook: {e}")
 
 # ===== ВЕБ-СЕРВЕР С API ДЛЯ ИГРЫ =====
 web_app = Flask(__name__)
@@ -267,17 +269,38 @@ def handle_other(message):
     
     bot.send_message(message.chat.id, response)
 
+# ===== ЗАПУСК =====
 if __name__ == "__main__":
+    print('🛑 Останавливаем все предыдущие подключения...')
+    
+    # ⭐ ЕЩЁ РАЗ УДАЛЯЕМ ВЕБХУК ПЕРЕД ЗАПУСКОМ ⭐
+    try:
+        requests.get(f'https://api.telegram.org/bot{BOT_TOKEN}/deleteWebhook')
+        print("✅ Вебхук удалён перед запуском")
+    except:
+        pass
+    
+    try:
+        bot.remove_webhook()
+        print("✅ Webhook удалён через bot")
+    except:
+        pass
+    
+    time.sleep(2)
+    
     print('✅ Бот-коала запущен!')
     print(f'🎮 Игра доступна по адресу: {GAME_URL}')
     print(f'📡 API доступен по адресу: {GAME_URL}api/player/')
     
-    time.sleep(2)
-    
+    # ⭐ ЗАПУСК С ПРАВИЛЬНЫМИ ПАРАМЕТРАМИ ⭐
     while True:
         try:
-            bot.infinity_polling(skip_pending=True, timeout=60)
+            bot.infinity_polling(
+                skip_pending=True,
+                timeout=60,
+                restart_on_true=True
+            )
         except Exception as e:
             print(f"⚠️ Ошибка: {e}")
-            print("🔄 Перезапуск через 5 секунд...")
-            time.sleep(5)
+            print("🔄 Перезапуск через 10 секунд...")
+            time.sleep(10)
