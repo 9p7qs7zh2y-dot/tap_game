@@ -149,13 +149,14 @@ def handle_other(message):
 # ===== FLASK ПРИЛОЖЕНИЕ =====
 app = Flask(__name__)
 
-@app.route('/', methods=['GET', 'HEAD'])
+# 🔧 ИСПРАВЛЕНО: добавлен POST и правильный Content-Type
+@app.route('/', methods=['GET', 'HEAD', 'POST'])
 def health_check():
-    return "OK", 200
+    return 'OK', 200, {'Content-Type': 'text/plain'}
 
-@app.route('/health', methods=['GET', 'HEAD'])
+@app.route('/health', methods=['GET', 'HEAD', 'POST'])
 def health():
-    return {"status": "alive"}, 200
+    return 'OK', 200, {'Content-Type': 'text/plain'}
 
 @app.route('/api/player/save', methods=['POST'])
 def api_save_player():
