@@ -34,6 +34,7 @@ def init_db():
         daily_streak INTEGER DEFAULT 1,
         has_premium INTEGER DEFAULT 0,
         battles_won INTEGER DEFAULT 0,
+        ref_earnings INTEGER DEFAULT 0,
         last_daily_claim TEXT,
         last_energy_update TEXT,
         updated_at TIMESTAMP
@@ -49,8 +50,8 @@ def save_all_player_data(user_id, name, data):
     cursor.execute('''
     INSERT OR REPLACE INTO players 
     (user_id, name, leaves, stars, level, exp, tap_power, energy, max_energy, 
-     total_taps, total_leaves, daily_streak, has_premium, battles_won, last_daily_claim, last_energy_update, updated_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+     total_taps, total_leaves, daily_streak, has_premium, battles_won, ref_earnings, last_daily_claim, last_energy_update, updated_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ''', (
         user_id, name,
         data.get('leaves', 500),
@@ -65,6 +66,7 @@ def save_all_player_data(user_id, name, data):
         data.get('daily_streak', 1),
         1 if data.get('has_premium', False) else 0,
         data.get('battles_won', 0),
+        data.get('ref_earnings', 0),
         data.get('last_daily_claim'),
         data.get('last_energy_update'),
         datetime.now()
@@ -94,8 +96,9 @@ def load_all_player_data(user_id):
             'daily_streak': row[11],
             'has_premium': bool(row[12]),
             'battles_won': row[13],
-            'last_daily_claim': row[14],
-            'last_energy_update': row[15]
+            'ref_earnings': row[14],
+            'last_daily_claim': row[15],
+            'last_energy_update': row[16]
         }
     return None
 
@@ -108,10 +111,52 @@ def get_main_keyboard():
     keyboard.add(KeyboardButton(text="🐨 Играть", web_app=WebAppInfo(url=GAME_URL)))
     return keyboard
 
+# ===== РЕФЕРАЛЬНАЯ СИСТЕМА =====
+def give_referral_bonus(ref_id, new_user_id, new_user_name):
+    """Начисляет бонус пригласившему"""
+    try:
+        ref_data = load_all_player_data(ref_id)
+        if ref_data:
+            # Базовый бонус
+            bonus = 1000
+            # Если у пригласившего есть премиум - бонус больше
+            if ref_data.get('has_premium'):
+                bonus = 5000
+            
+            ref_data['leaves'] = ref_data.get('leaves', 500) + bonus
+            ref_data['ref_earnings'] = ref_data.get('ref_earnings', 0) + bonus
+            save_all_player_data(ref_id, f"Player_{ref_id}", ref_data)
+            
+            # Уведомляем пригласившего
+            try:
+                bot.send_message(ref_id, f"🎉 {new_user_name} присоединился по твоей ссылке!\n\n💰 Ты получаешь: +{bonus} 🍃")
+            except:
+                pass
+            
+            print(f"✅ Реферальный бонус: {ref_id} получил {bonus}🍃 за {new_user_id}")
+    except Exception as e:
+        print(f"❌ Ошибка в give_referral_bonus: {e}")
+
 # ===== ОБРАБОТЧИКИ БОТА =====
 
 @bot.message_handler(commands=['start'])
 def send_welcome(message):
+    # Проверяем реферальный код
+    ref_id = None
+    if len(message.text.split()) > 1:
+        ref_id = message.text.split()[1]
+    
+    user_id = message.from_user.id
+    user_name = message.from_user.first_name
+    
+    # Начисляем бонус пригласившему
+    if ref_id and ref_id != str(user_id):
+        try:
+            ref_id = int(ref_id)
+            give_referral_bonus(ref_id, user_id, user_name)
+        except:
+            pass
+    
     welcome_text = """🐨 KOALA × TAP × KOALA
 
 🍃 Факт о коалах:
@@ -131,11 +176,31 @@ def send_help(message):
     help_text = """📚 Доступные команды:
 
 /start - начать игру с коалами
+/invite - получить реферальную ссылку
 /help - эта справка
 
 💡 Просто нажми «🐨 Играть» и тапай по коале!"""
     
     bot.send_message(message.chat.id, help_text, reply_markup=get_main_keyboard())
+
+@bot.message_handler(commands=['invite'])
+def invite_command(message):
+    user_id = message.from_user.id
+    bot_username = bot.get_me().username
+    ref_link = f"https://t.me/{bot_username}?start={user_id}"
+    
+    invite_text = f"""👥 ПРИГЛАСИ ДРУЗЕЙ!
+
+🔗 Твоя персональная ссылка:
+{ref_link}
+
+📊 Награды:
+• За каждого друга: +1000 🍃
+• Если у тебя Премиум: +5000 🍃
+
+📤 Отправь ссылку другу и получай бонусы!"""
+    
+    bot.send_message(message.chat.id, invite_text, reply_markup=get_main_keyboard())
 
 @bot.message_handler(func=lambda message: True)
 def handle_other(message):
@@ -146,10 +211,38 @@ def handle_other(message):
     
     bot.send_message(message.chat.id, response, reply_markup=get_main_keyboard())
 
+# ===== ОБРАБОТЧИКИ ПЛАТЕЖЕЙ TELEGRAM STARS =====
+@bot.pre_checkout_query_handler(func=lambda query: True)
+def checkout(pre_checkout_query):
+    bot.answer_pre_checkout_query(pre_checkout_query.id, ok=True)
+    print(f"✅ Pre-checkout подтверждён: {pre_checkout_query.id}")
+
+@bot.message_handler(content_types=['successful_payment'])
+def got_payment(message):
+    user_id = message.from_user.id
+    payment_info = message.successful_payment
+    payload = payment_info.invoice_payload
+    total_amount = payment_info.total_amount
+    currency = payment_info.currency
+    
+    print(f"💰 Платёж получен: user={user_id}, payload={payload}, amount={total_amount} {currency}")
+    
+    # Если куплен премиум - активируем
+    if payload.startswith('premium_'):
+        try:
+            player_data = load_all_player_data(user_id)
+            if player_data:
+                player_data['has_premium'] = True
+                save_all_player_data(user_id, message.from_user.first_name, player_data)
+                print(f"✅ Премиум активирован для {user_id}")
+        except Exception as e:
+            print(f"❌ Ошибка активации премиума: {e}")
+    
+    bot.send_message(message.chat.id, "✅ Спасибо за покупку! Ваш заказ выполнен.")
+
 # ===== FLASK ПРИЛОЖЕНИЕ =====
 app = Flask(__name__)
 
-# 🔧 ИСПРАВЛЕНО: добавлен POST и правильный Content-Type
 @app.route('/', methods=['GET', 'HEAD', 'POST'])
 def health_check():
     return 'OK', 200, {'Content-Type': 'text/plain'}
@@ -198,7 +291,8 @@ def api_load_player(user_id):
                 'total_leaves': 0,
                 'daily_streak': 1,
                 'has_premium': False,
-                'battles_won': 0
+                'battles_won': 0,
+                'ref_earnings': 0
             }
             print(f"🆕 Новый игрок {user_id}, возвращаем данные по умолчанию")
             return jsonify(default_data), 200
@@ -237,7 +331,7 @@ def api_register_player():
             'leaves': 500, 'stars': 0, 'level': 1, 'exp': 0,
             'tap_power': 1, 'energy': 100, 'max_energy': 100,
             'total_taps': 0, 'total_leaves': 0, 'daily_streak': 1,
-            'has_premium': False, 'battles_won': 0,
+            'has_premium': False, 'battles_won': 0, 'ref_earnings': 0,
             'last_daily_claim': None, 'last_energy_update': datetime.now().isoformat()
         }
         
@@ -264,15 +358,12 @@ def webhook():
 if __name__ == "__main__":
     print('🚀 Запуск бота через Webhook...')
     
-    # Удаляем старый вебхук
     bot.remove_webhook()
     
-    # Устанавливаем новый вебхук
     webhook_url = f"{RENDER_URL}/webhook"
     bot.set_webhook(url=webhook_url)
     print(f'✅ Webhook установлен: {webhook_url}')
     print(f'🎮 Игра доступна по адресу: {GAME_URL}')
     
-    # Запускаем Flask сервер
     port = int(os.environ.get("PORT", 10000))
     app.run(host='0.0.0.0', port=port)
