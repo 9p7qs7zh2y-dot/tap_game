@@ -5,11 +5,13 @@ from flask import Flask, request, jsonify
 import json
 import sqlite3
 from datetime import datetime
+import time
 
 # Получаем токен из переменных окружения Render
 BOT_TOKEN = os.environ.get("BOT_TOKEN", "8237220454:AAHIs1zJ_h2db7tbPFu7DJWTpp9_PwoLOls")
-GAME_URL = "https://asdfsaf-cd54.onrender.com/"
-RENDER_URL = os.environ.get("RENDER_EXTERNAL_URL", GAME_URL.rstrip('/'))
+# Добавляем параметр версии чтобы избежать кеширования
+GAME_URL = f"https://asdfsaf-cd54.onrender.com/?v={int(time.time())}"
+RENDER_URL = os.environ.get("RENDER_EXTERNAL_URL", "https://asdfsaf-cd54.onrender.com".rstrip('/'))
 
 # Создаем бота
 bot = telebot.TeleBot(BOT_TOKEN)
@@ -40,9 +42,24 @@ def init_db():
         updated_at TIMESTAMP
     )
     ''')
+    
+    # Таблица для турниров
+    cursor.execute('''
+    CREATE TABLE IF NOT EXISTS tournament_participants (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER,
+        name TEXT,
+        photo_url TEXT,
+        taps INTEGER DEFAULT 0,
+        tournament_date TEXT,
+        updated_at TIMESTAMP,
+        UNIQUE(user_id, tournament_date)
+    )
+    ''')
+    
     conn.commit()
     conn.close()
-    print("✅ База данных готова")
+    print("✅ База данных готова (игроки + турниры)")
 
 def save_all_player_data(user_id, name, data):
     conn = sqlite3.connect('koala_quest.db')
@@ -343,6 +360,72 @@ def api_register_player():
     except Exception as e:
         print(f"❌ Ошибка регистрации: {e}")
         return jsonify({'error': str(e)}), 500
+
+# ===== API ТУРНИРОВ =====
+@app.route('/api/tournament/save', methods=['POST'])
+def api_tournament_save():
+    """Сохраняет результат участника турнира"""
+    try:
+        data = request.get_json()
+        user_id = data.get('user_id')
+        name = data.get('name', 'Игрок')
+        photo_url = data.get('photo')
+        taps = data.get('taps', 0)
+        
+        if not user_id:
+            return jsonify({'error': 'No user_id'}), 400
+        
+        today = datetime.now().strftime('%Y-%m-%d')
+        
+        conn = sqlite3.connect('koala_quest.db')
+        cursor = conn.cursor()
+        cursor.execute('''
+        INSERT OR REPLACE INTO tournament_participants 
+        (user_id, name, photo_url, taps, tournament_date, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?)
+        ''', (user_id, name, photo_url, taps, today, datetime.now()))
+        conn.commit()
+        conn.close()
+        
+        print(f"🏆 Сохранён результат турнира: user={user_id}, taps={taps}")
+        return jsonify({'status': 'ok'}), 200
+    except Exception as e:
+        print(f"❌ Ошибка сохранения турнира: {e}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/tournament/participants', methods=['GET'])
+def api_tournament_participants():
+    """Возвращает список участников турнира за сегодня"""
+    try:
+        today = datetime.now().strftime('%Y-%m-%d')
+        
+        conn = sqlite3.connect('koala_quest.db')
+        cursor = conn.cursor()
+        cursor.execute('''
+        SELECT user_id, name, photo_url, taps 
+        FROM tournament_participants 
+        WHERE tournament_date = ?
+        ORDER BY taps DESC
+        LIMIT 100
+        ''', (today,))
+        
+        rows = cursor.fetchall()
+        conn.close()
+        
+        participants = []
+        for row in rows:
+            participants.append({
+                'id': row[0],
+                'name': row[1],
+                'photo': row[2],
+                'taps': row[3]
+            })
+        
+        print(f"📤 Отправлено {len(participants)} участников турнира")
+        return jsonify(participants), 200
+    except Exception as e:
+        print(f"❌ Ошибка загрузки турнира: {e}")
+        return jsonify([]), 200
 
 # Webhook endpoint для Telegram
 @app.route('/webhook', methods=['POST'])
