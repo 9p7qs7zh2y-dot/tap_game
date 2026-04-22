@@ -349,7 +349,7 @@ def api_create_invoice():
         
         # Создаём счёт
         print(f"📤 Отправляем send_invoice...")
-        msg = bot.send_invoice(
+        bot.send_invoice(
             chat_id=user_id,
             title=title,
             description=description,
@@ -359,8 +359,8 @@ def api_create_invoice():
             prices=[LabeledPrice(label=title, amount=amount)]
         )
         
-        # ✅ ПРАВИЛЬНАЯ ССЫЛКА ДЛЯ TELEGRAM WEBAPP
-        invoice_link = f"https://t.me/invoice/{msg.invoice_payload}"
+        # ✅ ИСПОЛЬЗУЕМ ТОТ ЖЕ PAYLOAD ДЛЯ ССЫЛКИ
+        invoice_link = f"https://t.me/invoice/{invoice_payload}"
         
         print(f"📄 Счёт создан: user={user_id}, item={item}, amount={amount} XTR")
         print(f"🔗 Invoice link: {invoice_link}")
