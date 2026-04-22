@@ -234,32 +234,32 @@ def checkout(pre_checkout_query):
 def got_payment(message):
     user_id = message.from_user.id
     payment_info = message.successful_payment
-    payload = payment_info.invoice_payload
+    invoice_payload = payment_info.invoice_payload
     total_amount = payment_info.total_amount
     currency = payment_info.currency
     
-    print(f"💰 Платёж получен: user={user_id}, payload={payload}, amount={total_amount} {currency}")
+    print(f"💰 Платёж получен: user={user_id}, payload={invoice_payload}, amount={total_amount} {currency}")
     
     player_data = load_all_player_data(user_id)
     if not player_data:
         player_data = {'leaves': 500, 'stars': 0, 'level': 1, 'has_premium': False}
     
     # Обработка разных типов покупок
-    if payload.startswith('premium_'):
+    if invoice_payload.startswith('premium_'):
         player_data['has_premium'] = True
         save_all_player_data(user_id, message.from_user.first_name, player_data)
         bot.send_message(message.chat.id, "✅ Премиум активирован! Двойные награды навсегда!")
         print(f"✅ Премиум активирован для {user_id}")
     
-    elif payload.startswith('doubleTap_'):
+    elif invoice_payload.startswith('doubleTap_'):
         bot.send_message(message.chat.id, "✅ Буст «Двойной тап» активирован на 1 час!")
         print(f"✅ Двойной тап активирован для {user_id}")
     
-    elif payload.startswith('autoTap_'):
+    elif invoice_payload.startswith('autoTap_'):
         bot.send_message(message.chat.id, "✅ Буст «Авто-тап» активирован на 24 часа!")
         print(f"✅ Авто-тап активирован для {user_id}")
     
-    elif payload.startswith('energyBoost_'):
+    elif invoice_payload.startswith('energyBoost_'):
         bot.send_message(message.chat.id, "✅ Буст «Ускоренная энергия» активирован на 12 часов!")
         print(f"✅ Ускоренная энергия активирована для {user_id}")
     
@@ -306,8 +306,8 @@ def api_create_invoice():
         user_id = int(user_id)
         amount = int(amount)
         
-        payload = f"{item}_{user_id}_{int(time.time())}"
-        print(f"🔑 Payload: {payload}")
+        invoice_payload = f"{item}_{user_id}_{int(time.time())}"
+        print(f"🔑 Payload: {invoice_payload}")
         
         # Создаём счёт
         print(f"📤 Отправляем send_invoice...")
@@ -315,7 +315,7 @@ def api_create_invoice():
             chat_id=user_id,
             title=title,
             description=description,
-            payload=payload,
+            invoice_payload=invoice_payload,  # ← ИСПРАВЛЕНО!
             provider_token='',
             currency='XTR',
             prices=[LabeledPrice(label=title, amount=amount)]
