@@ -292,7 +292,6 @@ def api_payment_success():
         
         print(f"📦 Уведомление о покупке: user={user_id}, item={item}, amount={amount}")
         
-        # Словарь с названиями товаров
         item_names = {
             'doubleTap': '✨ Двойной тап',
             'autoTap': '🤖 Авто-тап',
@@ -302,7 +301,6 @@ def api_payment_success():
         
         item_name = item_names.get(item, item)
         
-        # Отправляем сообщение пользователю
         if user_id:
             bot.send_message(
                 user_id,
@@ -361,8 +359,8 @@ def api_create_invoice():
             prices=[LabeledPrice(label=title, amount=amount)]
         )
         
-        # Формируем ПРЯМУЮ ссылку на оплату для WebApp
-        invoice_link = f"https://t.me/{bot.get_me().username}?start=pay_{msg.id}"
+        # ✅ ПРАВИЛЬНАЯ ССЫЛКА ДЛЯ TELEGRAM WEBAPP
+        invoice_link = f"https://t.me/invoice/{msg.invoice_payload}"
         
         print(f"📄 Счёт создан: user={user_id}, item={item}, amount={amount} XTR")
         print(f"🔗 Invoice link: {invoice_link}")
