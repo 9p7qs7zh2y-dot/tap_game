@@ -1,5 +1,5 @@
 import telebot
-from telebot.types import ReplyKeyboardMarkup, KeyboardButton, WebAppInfo
+from telebot.types import ReplyKeyboardMarkup, KeyboardButton, WebAppInfo, LabeledPrice
 import os
 from flask import Flask, request, jsonify
 import json
@@ -134,9 +134,7 @@ def give_referral_bonus(ref_id, new_user_id, new_user_name):
     try:
         ref_data = load_all_player_data(ref_id)
         if ref_data:
-            # Базовый бонус
             bonus = 1000
-            # Если у пригласившего есть премиум - бонус больше
             if ref_data.get('has_premium'):
                 bonus = 5000
             
@@ -144,7 +142,6 @@ def give_referral_bonus(ref_id, new_user_id, new_user_name):
             ref_data['ref_earnings'] = ref_data.get('ref_earnings', 0) + bonus
             save_all_player_data(ref_id, f"Player_{ref_id}", ref_data)
             
-            # Уведомляем пригласившего
             try:
                 bot.send_message(ref_id, f"🎉 {new_user_name} присоединился по твоей ссылке!\n\n💰 Ты получаешь: +{bonus} 🍃")
             except:
@@ -158,7 +155,6 @@ def give_referral_bonus(ref_id, new_user_id, new_user_name):
 
 @bot.message_handler(commands=['start'])
 def send_welcome(message):
-    # Проверяем реферальный код
     ref_id = None
     if len(message.text.split()) > 1:
         ref_id = message.text.split()[1]
@@ -166,7 +162,6 @@ def send_welcome(message):
     user_id = message.from_user.id
     user_name = message.from_user.first_name
     
-    # Начисляем бонус пригласившему
     if ref_id and ref_id != str(user_id):
         try:
             ref_id = int(ref_id)
@@ -244,18 +239,31 @@ def got_payment(message):
     
     print(f"💰 Платёж получен: user={user_id}, payload={payload}, amount={total_amount} {currency}")
     
-    # Если куплен премиум - активируем
-    if payload.startswith('premium_'):
-        try:
-            player_data = load_all_player_data(user_id)
-            if player_data:
-                player_data['has_premium'] = True
-                save_all_player_data(user_id, message.from_user.first_name, player_data)
-                print(f"✅ Премиум активирован для {user_id}")
-        except Exception as e:
-            print(f"❌ Ошибка активации премиума: {e}")
+    player_data = load_all_player_data(user_id)
+    if not player_data:
+        player_data = {'leaves': 500, 'stars': 0, 'level': 1, 'has_premium': False}
     
-    bot.send_message(message.chat.id, "✅ Спасибо за покупку! Ваш заказ выполнен.")
+    # Обработка разных типов покупок
+    if payload.startswith('premium_'):
+        player_data['has_premium'] = True
+        save_all_player_data(user_id, message.from_user.first_name, player_data)
+        bot.send_message(message.chat.id, "✅ Премиум активирован! Двойные награды навсегда!")
+        print(f"✅ Премиум активирован для {user_id}")
+    
+    elif payload.startswith('doubleTap_'):
+        bot.send_message(message.chat.id, "✅ Буст «Двойной тап» активирован на 1 час!")
+        print(f"✅ Двойной тап активирован для {user_id}")
+    
+    elif payload.startswith('autoTap_'):
+        bot.send_message(message.chat.id, "✅ Буст «Авто-тап» активирован на 24 часа!")
+        print(f"✅ Авто-тап активирован для {user_id}")
+    
+    elif payload.startswith('energyBoost_'):
+        bot.send_message(message.chat.id, "✅ Буст «Ускоренная энергия» активирован на 12 часов!")
+        print(f"✅ Ускоренная энергия активирована для {user_id}")
+    
+    else:
+        bot.send_message(message.chat.id, "✅ Спасибо за покупку! Ваш заказ выполнен.")
 
 # ===== FLASK ПРИЛОЖЕНИЕ =====
 app = Flask(__name__)
@@ -267,6 +275,43 @@ def health_check():
 @app.route('/health', methods=['GET', 'HEAD', 'POST'])
 def health():
     return 'OK', 200, {'Content-Type': 'text/plain'}
+
+# ===== API ДЛЯ СОЗДАНИЯ СЧЕТОВ (TELEGRAM STARS) =====
+@app.route('/api/create_invoice', methods=['POST'])
+def api_create_invoice():
+    """Создаёт счёт для оплаты Telegram Stars"""
+    try:
+        data = request.get_json()
+        user_id = data.get('user_id')
+        item = data.get('item')
+        amount = data.get('amount', 1)
+        title = data.get('title', 'Покупка')
+        description = data.get('description', '')
+        
+        if not user_id or not item:
+            return jsonify({'error': 'Missing user_id or item'}), 400
+        
+        # Создаём уникальный payload
+        payload = f"{item}_{user_id}_{int(time.time())}"
+        
+        # Создаём счёт через Telegram Bot API
+        invoice = bot.send_invoice(
+            chat_id=user_id,
+            title=title,
+            description=description,
+            payload=payload,
+            provider_token='',  # Пусто для Telegram Stars
+            currency='XTR',
+            prices=[LabeledPrice(label=title, amount=amount)]
+        )
+        
+        print(f"📄 Счёт создан: user={user_id}, item={item}, amount={amount} XTR")
+        
+        return jsonify({'invoice_link': invoice.invoice_link}), 200
+        
+    except Exception as e:
+        print(f"❌ Ошибка создания счёта: {e}")
+        return jsonify({'error': str(e)}), 500
 
 @app.route('/api/player/save', methods=['POST'])
 def api_save_player():
