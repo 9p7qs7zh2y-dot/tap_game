@@ -2,7 +2,7 @@ import telebot
 from telebot.types import ReplyKeyboardMarkup, KeyboardButton, WebAppInfo, LabeledPrice
 import os
 from flask import Flask, request, jsonify
-from flask_cors import CORS  # ← ДОБАВЛЕНО
+from flask_cors import CORS
 import json
 import sqlite3
 from datetime import datetime
@@ -268,7 +268,7 @@ def got_payment(message):
 
 # ===== FLASK ПРИЛОЖЕНИЕ =====
 app = Flask(__name__)
-CORS(app)  # ← ДОБАВЛЕНО - разрешает CORS для всех эндпоинтов
+CORS(app)
 
 @app.route('/', methods=['GET', 'HEAD', 'POST'])
 def health_check():
@@ -283,38 +283,53 @@ def health():
 def api_create_invoice():
     if request.method == 'OPTIONS':
         return '', 200
-    """Создаёт счёт для оплаты Telegram Stars"""
+    
+    print("📥 Получен запрос на создание счёта")
+    
     try:
         data = request.get_json()
+        print(f"📦 Данные запроса: {data}")
+        
         user_id = data.get('user_id')
         item = data.get('item')
         amount = data.get('amount', 1)
         title = data.get('title', 'Покупка')
         description = data.get('description', '')
         
+        print(f"👤 user_id={user_id}, item={item}, amount={amount}")
+        
         if not user_id or not item:
+            print("❌ Отсутствует user_id или item")
             return jsonify({'error': 'Missing user_id or item'}), 400
         
-        # Создаём уникальный payload
-        payload = f"{item}_{user_id}_{int(time.time())}"
+        # Преобразуем user_id в int
+        user_id = int(user_id)
+        amount = int(amount)
         
-        # Создаём счёт через Telegram Bot API
+        payload = f"{item}_{user_id}_{int(time.time())}"
+        print(f"🔑 Payload: {payload}")
+        
+        # Создаём счёт
+        print(f"📤 Отправляем send_invoice...")
         invoice = bot.send_invoice(
             chat_id=user_id,
             title=title,
             description=description,
             payload=payload,
-            provider_token='',  # Пусто для Telegram Stars
+            provider_token='',
             currency='XTR',
             prices=[LabeledPrice(label=title, amount=amount)]
         )
         
         print(f"📄 Счёт создан: user={user_id}, item={item}, amount={amount} XTR")
+        print(f"🔗 Invoice link: {invoice.invoice_link}")
         
         return jsonify({'invoice_link': invoice.invoice_link}), 200
         
     except Exception as e:
         print(f"❌ Ошибка создания счёта: {e}")
+        import traceback
+        traceback.print_exc()
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/player/save', methods=['POST', 'OPTIONS'])
@@ -421,7 +436,6 @@ def api_register_player():
 def api_tournament_save():
     if request.method == 'OPTIONS':
         return '', 200
-    """Сохраняет результат участника турнира"""
     try:
         data = request.get_json()
         user_id = data.get('user_id')
@@ -454,7 +468,6 @@ def api_tournament_save():
 def api_tournament_participants():
     if request.method == 'OPTIONS':
         return '', 200
-    """Возвращает список участников турнира за сегодня"""
     try:
         today = datetime.now().strftime('%Y-%m-%d')
         
