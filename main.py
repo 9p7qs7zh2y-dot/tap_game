@@ -349,7 +349,7 @@ def api_create_invoice():
         
         # Создаём счёт
         print(f"📤 Отправляем send_invoice...")
-        bot.send_invoice(
+        msg = bot.send_invoice(
             chat_id=user_id,
             title=title,
             description=description,
@@ -359,8 +359,9 @@ def api_create_invoice():
             prices=[LabeledPrice(label=title, amount=amount)]
         )
         
-        # ✅ ИСПОЛЬЗУЕМ ТОТ ЖЕ PAYLOAD ДЛЯ ССЫЛКИ
-        invoice_link = f"https://t.me/invoice/{invoice_payload}"
+        # ✅ ПРАВИЛЬНАЯ ССЫЛКА ДЛЯ MINI APP
+        bot_username = bot.get_me().username
+        invoice_link = f"https://t.me/{bot_username}?start=invoice_{msg.id}"
         
         print(f"📄 Счёт создан: user={user_id}, item={item}, amount={amount} XTR")
         print(f"🔗 Invoice link: {invoice_link}")
