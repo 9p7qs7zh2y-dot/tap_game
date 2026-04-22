@@ -2,6 +2,7 @@ import telebot
 from telebot.types import ReplyKeyboardMarkup, KeyboardButton, WebAppInfo, LabeledPrice
 import os
 from flask import Flask, request, jsonify
+from flask_cors import CORS  # ← ДОБАВЛЕНО
 import json
 import sqlite3
 from datetime import datetime
@@ -267,6 +268,7 @@ def got_payment(message):
 
 # ===== FLASK ПРИЛОЖЕНИЕ =====
 app = Flask(__name__)
+CORS(app)  # ← ДОБАВЛЕНО - разрешает CORS для всех эндпоинтов
 
 @app.route('/', methods=['GET', 'HEAD', 'POST'])
 def health_check():
@@ -277,8 +279,10 @@ def health():
     return 'OK', 200, {'Content-Type': 'text/plain'}
 
 # ===== API ДЛЯ СОЗДАНИЯ СЧЕТОВ (TELEGRAM STARS) =====
-@app.route('/api/create_invoice', methods=['POST'])
+@app.route('/api/create_invoice', methods=['POST', 'OPTIONS'])
 def api_create_invoice():
+    if request.method == 'OPTIONS':
+        return '', 200
     """Создаёт счёт для оплаты Telegram Stars"""
     try:
         data = request.get_json()
@@ -313,8 +317,10 @@ def api_create_invoice():
         print(f"❌ Ошибка создания счёта: {e}")
         return jsonify({'error': str(e)}), 500
 
-@app.route('/api/player/save', methods=['POST'])
+@app.route('/api/player/save', methods=['POST', 'OPTIONS'])
 def api_save_player():
+    if request.method == 'OPTIONS':
+        return '', 200
     try:
         data = request.get_json()
         user_id = data.get('user_id')
@@ -332,8 +338,10 @@ def api_save_player():
         print(f"API Error: {e}")
         return jsonify({'error': str(e)}), 500
 
-@app.route('/api/player/<int:user_id>', methods=['GET'])
+@app.route('/api/player/<int:user_id>', methods=['GET', 'OPTIONS'])
 def api_load_player(user_id):
+    if request.method == 'OPTIONS':
+        return '', 200
     try:
         player_data = load_all_player_data(user_id)
         
@@ -362,8 +370,10 @@ def api_load_player(user_id):
         print(f"API Load Error: {e}")
         return jsonify({'error': str(e)}), 500
 
-@app.route('/api/player/register', methods=['POST', 'GET'])
+@app.route('/api/player/register', methods=['POST', 'GET', 'OPTIONS'])
 def api_register_player():
+    if request.method == 'OPTIONS':
+        return '', 200
     try:
         if request.is_json:
             data = request.get_json()
@@ -407,8 +417,10 @@ def api_register_player():
         return jsonify({'error': str(e)}), 500
 
 # ===== API ТУРНИРОВ =====
-@app.route('/api/tournament/save', methods=['POST'])
+@app.route('/api/tournament/save', methods=['POST', 'OPTIONS'])
 def api_tournament_save():
+    if request.method == 'OPTIONS':
+        return '', 200
     """Сохраняет результат участника турнира"""
     try:
         data = request.get_json()
@@ -438,8 +450,10 @@ def api_tournament_save():
         print(f"❌ Ошибка сохранения турнира: {e}")
         return jsonify({'error': str(e)}), 500
 
-@app.route('/api/tournament/participants', methods=['GET'])
+@app.route('/api/tournament/participants', methods=['GET', 'OPTIONS'])
 def api_tournament_participants():
+    if request.method == 'OPTIONS':
+        return '', 200
     """Возвращает список участников турнира за сегодня"""
     try:
         today = datetime.now().strftime('%Y-%m-%d')
