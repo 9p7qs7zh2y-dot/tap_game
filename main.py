@@ -302,7 +302,6 @@ def api_create_invoice():
             print("❌ Отсутствует user_id или item")
             return jsonify({'error': 'Missing user_id or item'}), 400
         
-        # Преобразуем user_id в int
         user_id = int(user_id)
         amount = int(amount)
         
@@ -311,20 +310,23 @@ def api_create_invoice():
         
         # Создаём счёт
         print(f"📤 Отправляем send_invoice...")
-        invoice = bot.send_invoice(
+        msg = bot.send_invoice(
             chat_id=user_id,
             title=title,
             description=description,
-            invoice_payload=invoice_payload,  # ← ИСПРАВЛЕНО!
+            invoice_payload=invoice_payload,
             provider_token='',
             currency='XTR',
             prices=[LabeledPrice(label=title, amount=amount)]
         )
         
-        print(f"📄 Счёт создан: user={user_id}, item={item}, amount={amount} XTR")
-        print(f"🔗 Invoice link: {invoice.invoice_link}")
+        # Формируем ПРЯМУЮ ссылку на оплату для WebApp
+        invoice_link = f"https://t.me/{bot.get_me().username}?start=pay_{msg.id}"
         
-        return jsonify({'invoice_link': invoice.invoice_link}), 200
+        print(f"📄 Счёт создан: user={user_id}, item={item}, amount={amount} XTR")
+        print(f"🔗 Invoice link: {invoice_link}")
+        
+        return jsonify({'invoice_link': invoice_link}), 200
         
     except Exception as e:
         print(f"❌ Ошибка создания счёта: {e}")
