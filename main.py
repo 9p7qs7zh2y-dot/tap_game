@@ -278,6 +278,47 @@ def health_check():
 def health():
     return 'OK', 200, {'Content-Type': 'text/plain'}
 
+# ===== API ДЛЯ УВЕДОМЛЕНИЙ ОБ УСПЕШНОЙ ОПЛАТЕ =====
+@app.route('/api/payment_success', methods=['POST', 'OPTIONS'])
+def api_payment_success():
+    if request.method == 'OPTIONS':
+        return '', 200
+    
+    try:
+        data = request.get_json()
+        user_id = data.get('user_id')
+        item = data.get('item')
+        amount = data.get('amount')
+        
+        print(f"📦 Уведомление о покупке: user={user_id}, item={item}, amount={amount}")
+        
+        # Словарь с названиями товаров
+        item_names = {
+            'doubleTap': '✨ Двойной тап',
+            'autoTap': '🤖 Авто-тап',
+            'energyBoost': '⚡ Ускоренная энергия',
+            'premium': '🐨 Koala Premium'
+        }
+        
+        item_name = item_names.get(item, item)
+        
+        # Отправляем сообщение пользователю
+        if user_id:
+            bot.send_message(
+                user_id,
+                f"🎉 Спасибо за покупку!\n\n"
+                f"🛍️ Товар: {item_name}\n"
+                f"⭐ Потрачено: {amount} Stars\n\n"
+                f"💫 Приятной игры в Koala Taps!"
+            )
+            print(f"✅ Уведомление отправлено пользователю {user_id}")
+        
+        return jsonify({'status': 'ok'}), 200
+        
+    except Exception as e:
+        print(f"❌ Ошибка отправки уведомления: {e}")
+        return jsonify({'error': str(e)}), 500
+
 # ===== API ДЛЯ СОЗДАНИЯ СЧЕТОВ (TELEGRAM STARS) =====
 @app.route('/api/create_invoice', methods=['POST', 'OPTIONS'])
 def api_create_invoice():
