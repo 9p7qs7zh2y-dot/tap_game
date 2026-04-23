@@ -359,12 +359,12 @@ def api_create_invoice():
             prices=[LabeledPrice(label=title, amount=amount)]
         )
         
-        # ИСПРАВЛЕНО: Чистая ссылка без ?startapp=pay
+        # 🔥 НОВЫЙ ФОРМАТ ССЫЛКИ: ?invoice=
         bot_username = bot.get_me().username
-        invoice_link = f"https://t.me/{bot_username}/{msg.message_id}"
+        invoice_link = f"https://t.me/{bot_username}?invoice={msg.message_id}"
         
         print(f"📄 Счёт создан: user={user_id}, item={item}, amount={amount} XTR")
-        print(f"🔗 Invoice link (чистый): {invoice_link}")
+        print(f"🔗 Invoice link (новый формат): {invoice_link}")
         
         return jsonify({'invoice_link': invoice_link}), 200
         
