@@ -1,7 +1,7 @@
 import telebot
 from telebot.types import ReplyKeyboardMarkup, KeyboardButton, WebAppInfo, LabeledPrice
 import os
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
 import json
 import sqlite3
@@ -11,8 +11,8 @@ import time
 # Получаем токен из переменных окружения Render
 BOT_TOKEN = os.environ.get("BOT_TOKEN", "8237220454:AAHIs1zJ_h2db7tbPFu7DJWTpp9_PwoLOls")
 # Добавляем параметр версии чтобы избежать кеширования
-GAME_URL = f"https://asdfsaf-cd54.onrender.com/?v={int(time.time())}"
-RENDER_URL = os.environ.get("RENDER_EXTERNAL_URL", "https://asdfsaf-cd54.onrender.com".rstrip('/'))
+GAME_URL = f"https://koala-bot.onrender.com/?v={int(time.time())}"
+RENDER_URL = os.environ.get("RENDER_EXTERNAL_URL", "https://koala-bot.onrender.com".rstrip('/'))
 
 # Создаем бота
 bot = telebot.TeleBot(BOT_TOKEN)
@@ -270,9 +270,14 @@ def got_payment(message):
 app = Flask(__name__)
 CORS(app)
 
-@app.route('/', methods=['GET', 'HEAD', 'POST'])
-def health_check():
-    return 'OK', 200, {'Content-Type': 'text/plain'}
+# ===== НОВОЕ: Отдача игры =====
+@app.route('/')
+def serve_game():
+    return send_from_directory('static', 'index.html')
+
+@app.route('/static/<path:path>')
+def serve_static(path):
+    return send_from_directory('static', path)
 
 @app.route('/health', methods=['GET', 'HEAD', 'POST'])
 def health():
