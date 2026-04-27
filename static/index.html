@@ -1,4 +1,4 @@
- <!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
@@ -287,7 +287,7 @@
 
 <script>
     // ==================== ПРИНУДИТЕЛЬНОЕ ОБНОВЛЕНИЕ КЕША ====================
-    const APP_VERSION = '2.0.9';  // ← ВЕРСИЯ ОБНОВЛЕНА
+    const APP_VERSION = '2.1.0';  // ← ВЕРСИЯ ОБНОВЛЕНА
     const storedVersion = localStorage.getItem('koala_app_version');
     
     if (storedVersion !== APP_VERSION) {
@@ -304,7 +304,7 @@
     }
 
     // ==================== КОНСТАНТА API ====================
-    const API_BASE = 'https://koala-bot.onrender.com';
+    const API_BASE = window.location.origin;  // ← АВТОМАТИЧЕСКИ ОПРЕДЕЛЯЕТ ДОМЕН
     const BOT_USERNAME = 'ZoomTapi_Bot';
 
     // ==================== ЭКРАН ЗАГРУЗКИ ====================
