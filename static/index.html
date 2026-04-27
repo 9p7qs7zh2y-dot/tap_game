@@ -1,1 +1,1022 @@
+ <!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Koala Quest — Турнир тапов!</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; user-select: none; -webkit-tap-highlight-color: transparent; }
+        .loading-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: url('https://i.ibb.co/84mbBWZW/d5d1fb9d-5bf1-4239-875b-76c4f226a13f.webp') no-repeat center center; background-size: cover; background-position: center center; z-index: 10000; display: flex; justify-content: center; align-items: center; transition: opacity 0.6s ease, visibility 0.6s ease; }
+        .loading-overlay.hide { opacity: 0; visibility: hidden; }
+        .loading-overlay::before { content: ''; position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.45); pointer-events: none; }
+        .loading-content { text-align: center; padding: 30px; background: rgba(0,0,0,0.6); backdrop-filter: blur(12px); border-radius: 60px; min-width: 280px; z-index: 1; border: 1px solid rgba(255,215,0,0.3); box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+        .loading-koala { width: 200px; height: auto; margin-bottom: 25px; filter: drop-shadow(0 10px 20px rgba(0,0,0,0.5)); animation: gentleBounce 1.2s ease-in-out infinite; }
+        @keyframes gentleBounce { 0%, 100% { transform: translateY(0px) scale(1); } 50% { transform: translateY(-10px) scale(1.02); } }
+        .koala-glow { position: relative; display: inline-block; }
+        .koala-glow::before { content: ''; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 240px; height: 240px; background: radial-gradient(circle, rgba(255,215,130,0.3) 0%, transparent 70%); border-radius: 50%; pointer-events: none; animation: pulse 2s ease-in-out infinite; }
+        @keyframes pulse { 0%, 100% { opacity: 0.3; transform: translate(-50%, -50%) scale(1); } 50% { opacity: 0.7; transform: translate(-50%, -50%) scale(1.1); } }
+        .loading-text { font-size: 16px; letter-spacing: 4px; color: #FFD966; margin-bottom: 15px; font-weight: 700; text-transform: uppercase; text-shadow: 0 2px 5px black; }
+        .progress-container { width: 280px; height: 8px; background: rgba(0,0,0,0.6); border-radius: 10px; overflow: hidden; margin: 0 auto; box-shadow: inset 0 1px 3px rgba(0,0,0,0.3); }
+        .progress-bar { width: 0%; height: 100%; background: linear-gradient(90deg, #e9b35f, #ffd966, #e9b35f); background-size: 200% auto; border-radius: 10px; transition: width 0.2s ease; animation: shimmer 1.5s linear infinite; }
+        @keyframes shimmer { 0% { background-position: 0% center; } 100% { background-position: 200% center; } }
+        .percent { font-size: 20px; font-weight: bold; color: #FFD966; margin-top: 12px; font-family: monospace; letter-spacing: 1px; text-shadow: 0 1px 2px black; }
+        body { background-image: url('https://i.ibb.co/r2xkhZh8/6f69f0731e311f185e84ea489818012-1.jpg'); background-size: cover; background-position: center; background-attachment: fixed; background-repeat: no-repeat; min-height: 100vh; font-family: 'Segoe UI', 'Poppins', system-ui, -apple-system, sans-serif; padding: 12px; color: #fff; }
+        body::before { content: ''; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.6); z-index: -1; pointer-events: none; }
+        .app-container { max-width: 450px; margin: 0 auto; position: relative; z-index: 2; }
+        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; background: rgba(0,0,0,0.7); backdrop-filter: blur(12px); border-radius: 50px; padding: 12px 20px; border: 1px solid rgba(255,215,0,0.3); box-shadow: 0 4px 15px rgba(0,0,0,0.3); }
+        .user-info { display: flex; align-items: center; gap: 12px; }
+        .user-avatar { width: 48px; height: 48px; border-radius: 50%; background: linear-gradient(135deg, #FFD700, #FFA500); display: flex; align-items: center; justify-content: center; font-size: 28px; overflow: hidden; }
+        .user-avatar img { width: 100%; height: 100%; object-fit: cover; }
+        .user-stats { line-height: 1.3; }
+        .user-name { font-weight: bold; font-size: 15px; text-shadow: 0 1px 2px black; }
+        .user-level { font-size: 11px; opacity: 0.9; }
+        .resources { display: flex; gap: 15px; }
+        .resource { display: flex; align-items: center; gap: 6px; background: rgba(0,0,0,0.6); padding: 6px 14px; border-radius: 40px; border: 1px solid rgba(255,215,0,0.4); }
+        .resource-icon { font-size: 20px; }
+        .resource-value { font-weight: bold; font-size: 16px; text-shadow: 0 1px 1px black; }
+        .tournament-card { background: linear-gradient(135deg, rgba(0,0,0,0.75), rgba(0,0,0,0.6)); backdrop-filter: blur(12px); border-radius: 36px; padding: 18px; margin-bottom: 20px; border: 2px solid #FF6600; box-shadow: 0 0 20px rgba(255,100,0,0.6); animation: pulseTournament 2s infinite; }
+        @keyframes pulseTournament { 0%, 100% { box-shadow: 0 0 15px rgba(255,100,0,0.6); border-color: #FF6600; } 50% { box-shadow: 0 0 30px rgba(255,100,0,0.9); border-color: #FFA500; } }
+        .tournament-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 8px; }
+        .tournament-title { font-size: 20px; font-weight: bold; display: flex; align-items: center; gap: 8px; text-shadow: 0 2px 3px black; }
+        .tournament-timer { background: rgba(0,0,0,0.7); padding: 5px 12px; border-radius: 30px; font-size: 14px; font-weight: bold; color: #FFAA33; }
+        .tournament-stats { display: flex; justify-content: space-between; margin-bottom: 12px; font-size: 14px; font-weight: 500; flex-wrap: wrap; gap: 8px; text-shadow: 0 1px 1px black; }
+        .tournament-progress { background: rgba(0,0,0,0.6); border-radius: 20px; height: 10px; margin: 10px 0; overflow: hidden; }
+        .tournament-progress-fill { background: linear-gradient(90deg, #FF6600, #FFAA33); width: 0%; height: 100%; transition: width 0.3s; }
+        .tournament-button { background: linear-gradient(135deg, #FF6600, #FF3300); border: none; padding: 14px; border-radius: 50px; font-size: 16px; font-weight: bold; color: white; cursor: pointer; width: 100%; transition: all 0.2s; box-shadow: 0 4px 10px rgba(0,0,0,0.3); }
+        .tournament-button:active { transform: scale(0.97); }
+        .tournament-button.disabled { background: #555; opacity: 0.7; cursor: not-allowed; }
+        .tournament-leaderboard { margin-top: 12px; background: rgba(0,0,0,0.5); border-radius: 24px; padding: 12px; }
+        .tournament-leaderboard-title { font-size: 13px; margin-bottom: 8px; color: #FFD700; font-weight: bold; }
+        .tournament-rank-item { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; font-size: 13px; border-bottom: 1px solid rgba(255,255,255,0.15); }
+        .tournament-rank-item img { width: 24px; height: 24px; border-radius: 50%; margin-right: 8px; }
+        
+        .koala-card { 
+            background: rgba(0,0,0,0.5); 
+            backdrop-filter: blur(12px); 
+            border-radius: 60px; 
+            padding: 30px 20px; 
+            text-align: center; 
+            margin-bottom: 20px; 
+            border: 2px solid rgba(255,215,0,0.5); 
+            box-shadow: 0 10px 30px rgba(0,0,0,0.4); 
+            cursor: pointer; 
+            transition: all 0.08s ease;
+            min-height: 250px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 100%;
+            max-width: 400px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+        .koala-card:active { 
+            transform: scale(0.97);
+            background: rgba(0,0,0,0.6);
+            border-color: #FFD700;
+        }
+        .koala-img { 
+            width: 80%; 
+            max-width: 280px; 
+            display: block; 
+            margin: 0 auto; 
+            background: transparent; 
+            filter: drop-shadow(0 15px 20px rgba(0,0,0,0.4)) drop-shadow(0 0 8px rgba(255,215,0,0.3)); 
+            pointer-events: none; 
+            transition: transform 0.05s ease;
+            object-fit: contain;
+        }
+        .koala-card:active .koala-img { transform: scale(0.96); }
+        
+        @media (max-width: 380px) {
+            .koala-card { padding: 25px 15px; min-height: 220px; }
+            .koala-img { max-width: 240px; }
+        }
+        @media (max-width: 320px) {
+            .koala-card { padding: 20px 10px; min-height: 200px; }
+            .koala-img { max-width: 200px; }
+        }
+        
+        .level-section { margin-bottom: 20px; background: rgba(0,0,0,0.5); border-radius: 40px; padding: 12px 16px; backdrop-filter: blur(8px); }
+        .level-header { display: flex; justify-content: space-between; font-size: 13px; font-weight: bold; margin-bottom: 8px; text-shadow: 0 1px 2px black; }
+        .exp-bar { background: rgba(0,0,0,0.6); border-radius: 20px; height: 12px; overflow: hidden; }
+        .exp-fill { background: linear-gradient(90deg, #FFD700, #FFA500); width: 0%; height: 100%; border-radius: 20px; transition: width 0.3s; }
+        .energy-section { background: rgba(0,0,0,0.6); backdrop-filter: blur(10px); border-radius: 40px; padding: 12px 20px; margin-bottom: 20px; display: flex; align-items: center; gap: 15px; border: 1px solid rgba(255,215,0,0.3); }
+        .energy-icon { font-size: 28px; }
+        .energy-bar-container { flex: 1; }
+        .energy-bar-bg { background: rgba(255,255,255,0.25); border-radius: 10px; height: 10px; }
+        .energy-bar-fill { background: #4CAF50; width: 100%; height: 100%; border-radius: 10px; transition: width 0.3s; box-shadow: 0 0 5px #4CAF50; }
+        .energy-text { font-size: 14px; font-weight: bold; min-width: 70px; text-align: right; text-shadow: 0 1px 1px black; }
+        
+        .active-boosts { background: rgba(0,0,0,0.5); border-radius: 40px; padding: 12px 16px; margin-bottom: 20px; display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; }
+        .boost-badge { background: linear-gradient(135deg, #FF6600, #FF3300); border-radius: 30px; padding: 6px 12px; font-size: 12px; font-weight: bold; color: white; display: inline-flex; align-items: center; gap: 6px; }
+        
+        .tabs { display: flex; gap: 8px; background: rgba(0,0,0,0.6); backdrop-filter: blur(10px); border-radius: 50px; padding: 8px; margin-bottom: 20px; flex-wrap: wrap; border: 1px solid rgba(255,215,0,0.2); }
+        .tab-btn { flex: 1; padding: 12px 8px; border: none; background: rgba(0,0,0,0.5); color: #eee; font-size: 14px; font-weight: bold; border-radius: 40px; cursor: pointer; transition: all 0.2s; white-space: nowrap; min-height: 48px; }
+        .tab-btn.active { background: linear-gradient(135deg, #FFD700, #FFA500); color: #1a2a3a; box-shadow: 0 2px 8px rgba(0,0,0,0.3); }
+        .tab-btn:active { transform: scale(0.96); }
+        .panel { display: none; animation: fadeIn 0.3s ease; }
+        .panel.active { display: block; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .card { background: rgba(0,0,0,0.65); backdrop-filter: blur(12px); border-radius: 32px; padding: 20px; margin-bottom: 18px; border: 1px solid rgba(255,215,0,0.25); box-shadow: 0 6px 14px rgba(0,0,0,0.3); }
+        .card-title { font-size: 18px; font-weight: bold; margin-bottom: 16px; display: flex; align-items: center; gap: 10px; color: #FFD966; text-shadow: 0 1px 2px black; }
+        .btn { background: #FFD700; border: none; padding: 14px 20px; border-radius: 50px; font-size: 16px; font-weight: bold; color: #1a2a3a; cursor: pointer; width: 100%; transition: all 0.2s; box-shadow: 0 2px 6px rgba(0,0,0,0.3); min-height: 52px; }
+        .btn:active { transform: scale(0.97); }
+        .btn-secondary { background: rgba(255,255,255,0.2); color: white; border: 1px solid rgba(255,255,255,0.3); }
+        .btn-star { background: linear-gradient(135deg, #4a90d9, #357abd); color: white; }
+        .btn-completed { background: #555; cursor: not-allowed; opacity: 0.7; }
+        .btn-completed:active { transform: none; }
+        .tasks-grid, .shop-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; }
+        .task-item, .shop-item { background: rgba(0,0,0,0.7); border-radius: 24px; padding: 14px; text-align: center; border: 1px solid rgba(255,215,0,0.2); transition: transform 0.1s; }
+        .shop-price { background: #FFD700; display: inline-block; padding: 8px 16px; border-radius: 30px; font-size: 14px; font-weight: bold; color: #1a2a3a; cursor: pointer; margin-top: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.2); min-width: 80px; }
+        .shop-price-star { background: linear-gradient(135deg, #4a90d9, #357abd); color: white; }
+        .shop-price-disabled { background: #555; cursor: not-allowed; opacity: 0.7; }
+        .friend-invite { background: rgba(0,0,0,0.7); backdrop-filter: blur(12px); border-radius: 32px; padding: 20px; text-align: center; margin-bottom: 18px; border: 1px solid #FFD700; }
+        .invite-bonus { display: flex; justify-content: center; gap: 25px; margin: 15px 0; }
+        .bonus-value { font-size: 22px; font-weight: bold; color: #FFD700; text-shadow: 0 1px 2px black; }
+        .leaderboard-item { display: flex; align-items: center; gap: 15px; padding: 12px; border-bottom: 1px solid rgba(255,255,255,0.15); background: rgba(0,0,0,0.3); border-radius: 20px; margin-bottom: 6px; }
+        .leaderboard-item img { width: 32px; height: 32px; border-radius: 50%; }
+        .rank { width: 40px; font-weight: bold; color: #FFD700; font-size: 16px; }
+        .tap-effect-number { position: fixed; font-size: 36px; font-weight: bold; pointer-events: none; animation: floatUp 0.6s ease forwards; z-index: 1000; text-shadow: 0 0 8px #FFD700; color: #FFD700; }
+        @keyframes floatUp { 0% { opacity: 1; transform: translateY(0) scale(0.6); } 100% { opacity: 0; transform: translateY(-80px) scale(1.2); } }
+        .footer { text-align: center; padding: 20px; font-size: 11px; opacity: 0.7; }
+        .modal { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.95); justify-content: center; align-items: center; z-index: 2000; }
+        .modal-content { background: linear-gradient(145deg, #0a2a4a, #001a3a); border-radius: 40px; padding: 28px; width: 85%; max-width: 340px; text-align: center; border: 2px solid #FFD700; }
+        .premium-features { text-align: left; margin: 20px 0; padding: 15px; background: rgba(0,0,0,0.5); border-radius: 24px; }
+        .premium-features li { margin: 10px 0; list-style: none; }
+        .daily-timer { font-size: 11px; opacity: 0.8; margin-left: 8px; }
+    </style>
+</head>
+<body>
 
+<div class="loading-overlay" id="loadingOverlay">
+    <div class="loading-content">
+        <div class="koala-glow">
+            <img class="loading-koala" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 300 300'%3E%3Cellipse cx='150' cy='180' rx='70' ry='65' fill='%23757575'/%3E%3Ccircle cx='150' cy='120' r='55' fill='%23858585'/%3E%3Ccircle cx='105' cy='80' r='30' fill='%23757575'/%3E%3Ccircle cx='195' cy='80' r='30' fill='%23757575'/%3E%3Ccircle cx='105' cy='80' r='18' fill='%23d9d9d9'/%3E%3Ccircle cx='195' cy='80' r='18' fill='%23d9d9d9'/%3E%3Ccircle cx='130' cy='115' r='12' fill='white'/%3E%3Ccircle cx='170' cy='115' r='12' fill='white'/%3E%3Ccircle cx='133' cy='113' r='6' fill='black'/%3E%3Ccircle cx='173' cy='113' r='6' fill='black'/%3E%3Ccircle cx='135' cy='111' r='2' fill='white'/%3E%3Ccircle cx='175' cy='111' r='2' fill='white'/%3E%3Cellipse cx='150' cy='135' rx='15' ry='10' fill='%23333333'/%3E%3Cpath d='M140 145 Q150 155 160 145' stroke='%23333333' stroke-width='2' fill='none' stroke-linecap='round'/%3E%3Cellipse cx='120' cy='195' rx='20' ry='12' fill='%23656565'/%3E%3Cellipse cx='180' cy='195' rx='20' ry='12' fill='%23656565'/%3E%3C/svg%3E" alt="Коала">
+        </div>
+        <div class="loading-text">ЗАГРУЗКА</div>
+        <div class="progress-container">
+            <div class="progress-bar" id="progressBar"></div>
+        </div>
+        <div class="percent" id="percentText">0%</div>
+    </div>
+</div>
+
+<div class="app-container" id="gameContainer" style="display: none;">
+    <div class="header">
+        <div class="user-info">
+            <div class="user-avatar" id="avatar">🐨</div>
+            <div class="user-stats">
+                <div class="user-name" id="username">KoalaMaster</div>
+                <div class="user-level" id="levelText">LVL 1</div>
+            </div>
+        </div>
+        <div class="resources">
+            <div class="resource"><span class="resource-icon">🍃</span><span class="resource-value" id="leaves">0</span></div>
+            <div class="resource"><span class="resource-icon">⭐</span><span class="resource-value" id="stars">0</span></div>
+        </div>
+    </div>
+
+    <div class="tournament-card">
+        <div class="tournament-header">
+            <div class="tournament-title">🏆 ТУРНИР ТАПОВ 🏆</div>
+            <div class="tournament-timer" id="tournamentTimer">До конца: --:--</div>
+        </div>
+        <div class="tournament-stats">
+            <span>🔥 Твои тапы: <span id="tournamentMyTaps">0</span></span>
+            <span>🥇 Лидер: <span id="tournamentLeader">--</span> (<span id="tournamentLeaderTaps">0</span>)</span>
+        </div>
+        <div class="tournament-progress"><div class="tournament-progress-fill" id="tournamentProgress"></div></div>
+        <button class="tournament-button" id="tournamentJoinBtn">⚡ УЧАСТВОВАТЬ (3/3 сегодня)</button>
+        <div class="tournament-leaderboard">
+            <div class="tournament-leaderboard-title">🏅 ТОП УЧАСТНИКОВ ТУРНИРА</div>
+            <div id="tournamentRankList"></div>
+        </div>
+    </div>
+
+    <div class="koala-card" id="koalaTap">
+        <img class="koala-img" src="https://i.ibb.co/21wG4Gxk/image-1-1-removebg-preview.png" alt="Koala">
+    </div>
+
+    <div class="level-section">
+        <div class="level-header"><span>🎋 Уровень <span id="currentLevel">1</span></span><span>✨ Опыт: <span id="currentExp">0</span>/<span id="nextExp">100</span></span></div>
+        <div class="exp-bar"><div class="exp-fill" id="expFill"></div></div>
+    </div>
+
+    <div class="energy-section">
+        <div class="energy-icon">⚡</div>
+        <div class="energy-bar-container"><div class="energy-bar-bg"><div class="energy-bar-fill" id="energyFill"></div></div></div>
+        <div class="energy-text" id="energyText">100/100</div>
+    </div>
+
+    <div class="active-boosts" id="activeBoosts"></div>
+
+    <div class="tabs">
+        <button class="tab-btn active" data-tab="home">🏠 Главная</button>
+        <button class="tab-btn" data-tab="tasks">📋 Задания</button>
+        <button class="tab-btn" data-tab="shop">🛒 Магазин</button>
+        <button class="tab-btn" data-tab="friends">👥 Друзья</button>
+        <button class="tab-btn" data-tab="top">🏆 Топ</button>
+    </div>
+
+    <div class="panel active" id="home-panel">
+        <div class="card">
+            <div class="card-title">🎋 Статистика</div>
+            <div style="display: flex; justify-content: space-around;">
+                <div style="text-align:center"><div style="font-size:28px;">🍃</div><div id="totalLeaves">0</div><div style="font-size:11px;">собрано</div></div>
+                <div style="text-align:center"><div style="font-size:28px;">🐨</div><div id="totalTaps">0</div><div style="font-size:11px;">тапов</div></div>
+                <div style="text-align:center"><div style="font-size:28px;">🏆</div><div id="battlesWon">0</div><div style="font-size:11px;">побед</div></div>
+            </div>
+        </div>
+        <div class="card">
+            <div class="card-title">🎁 Ежедневный бонус</div>
+            <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap;">
+                <span>🔥 День <span id="dailyStreak">1</span></span>
+                <span>🎁 <span id="dailyBonus">100</span> 🍃</span>
+                <button class="btn" id="claimDaily" style="width:auto; padding:8px 16px;">Забрать</button>
+            </div>
+            <div id="dailyTimer" class="daily-timer" style="text-align:center; margin-top:8px;"></div>
+        </div>
+        <div class="card">
+            <div class="card-title">🐨 Куала Премиум</div>
+            <div style="text-align:center">
+                <div style="font-size:48px;">🎫</div>
+                <div>Премиум: <span id="hasPremium">❌</span></div>
+                <button class="btn-star" style="margin-top:10px;" onclick="showPremiumModal()">⭐ Купить за 299 звезд</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="panel" id="tasks-panel">
+        <div class="card"><div class="card-title">📋 Ежедневные задания</div><div class="tasks-grid" id="dailyTasksGrid"></div></div>
+        <div class="card"><div class="card-title">🏆 Челленджи</div><div class="tasks-grid" id="challengesGrid"></div></div>
+    </div>
+
+    <div class="panel" id="shop-panel">
+        <div class="card"><div class="card-title">🛍️ За листья 🍃</div><div class="shop-grid" id="coinShop"></div></div>
+        <div class="card"><div class="card-title">⭐ За Telegram Stars</div><div class="shop-grid" id="starShop"></div></div>
+    </div>
+
+    <div class="panel" id="friends-panel">
+        <div class="friend-invite">
+            <div class="card-title">👥 ПРИГЛАСИ ДРУЗЕЙ</div>
+            <div class="invite-bonus">
+                <div class="bonus-item"><div class="bonus-value">+1000 🍃</div><div>ДЛЯ ДРУГА</div></div>
+                <div class="bonus-item"><div class="bonus-value">+5000 🍃</div><div>ЕСЛИ С ПРЕМИУМ</div></div>
+            </div>
+            <button class="btn" id="inviteFriendBtn">🔗 ПРИГЛАСИТЬ ДРУЗЕЙ</button>
+        </div>
+        <div class="card"><div class="card-title">💰 РЕФЕРАЛЬНЫЙ ДОХОД</div>
+            <div style="text-align:center; padding:10px;">
+                <div style="font-size:24px; color:#FFD700;">🍃 <span id="refEarnings">0</span></div>
+                <div style="font-size:12px; opacity:0.8;">Заработано на друзьях</div>
+            </div>
+        </div>
+        <div class="card"><div class="card-title">👥 ТВОИ ДРУЗЬЯ</div><div class="friend-list" id="friendsList"><div style="text-align:center; opacity:0.5;">Нет друзей. Пригласи первого!</div></div></div>
+    </div>
+
+    <div class="panel" id="top-panel">
+        <div class="card"><div class="card-title">🏆 Топ игроков по уровню</div><div id="leaderboardList"></div></div>
+    </div>
+
+    <div class="footer">🐨 Koala Quest — Тапай по коале, участвуй в турнирах!</div>
+</div>
+
+<div class="modal" id="premiumModal"><div class="modal-content"><h3>🐨 Премиум</h3><div class="premium-features"><ul><li>✨ <strong>ДВОЙНЫЕ НАГРАДЫ</strong></li><li>⚡ <strong>БЫСТРАЯ ЭНЕРГИЯ</strong></li><li>🎁 <strong>ЭКСКЛЮЗИВНЫЕ ЗАДАНИЯ</strong></li><li>👑 <strong>УНИКАЛЬНЫЙ СКИН</strong></li></ul></div><button class="btn-star" onclick="buyPremium()">⭐ Купить за 299 звезд</button><button class="btn-secondary" style="margin-top:10px;" onclick="closePremiumModal()">Закрыть</button></div></div>
+
+<script>
+    // ==================== ПРИНУДИТЕЛЬНОЕ ОБНОВЛЕНИЕ КЕША ====================
+    const APP_VERSION = '2.0.9';  // ← ВЕРСИЯ ОБНОВЛЕНА
+    const storedVersion = localStorage.getItem('koala_app_version');
+    
+    if (storedVersion !== APP_VERSION) {
+        console.log(`🔄 Обновление с версии ${storedVersion} до ${APP_VERSION}. Очистка кеша...`);
+        
+        if ('caches' in window) {
+            caches.keys().then(names => {
+                names.forEach(name => caches.delete(name));
+            });
+        }
+        
+        localStorage.setItem('koala_app_version', APP_VERSION);
+        window.location.reload(true);
+    }
+
+    // ==================== КОНСТАНТА API ====================
+    const API_BASE = 'https://koala-bot.onrender.com';
+    const BOT_USERNAME = 'ZoomTapi_Bot';
+
+    // ==================== ЭКРАН ЗАГРУЗКИ ====================
+    const progressBar = document.getElementById('progressBar');
+    const percentText = document.getElementById('percentText');
+    const loadingOverlay = document.getElementById('loadingOverlay');
+    const gameContainer = document.getElementById('gameContainer');
+    let progress = 0;
+    function updateProgress() {
+        if (progress < 100) {
+            let step = Math.random() * 12 + 3;
+            progress = Math.min(progress + step, 100);
+            progressBar.style.width = progress + '%';
+            percentText.textContent = Math.floor(progress) + '%';
+            if (progress < 100) setTimeout(updateProgress, 100 + Math.random() * 80);
+            else setTimeout(() => { loadingOverlay.classList.add('hide'); gameContainer.style.display = 'block'; }, 500);
+        }
+    }
+
+    // ==================== TELEGRAM ИНИЦИАЛИЗАЦИЯ ====================
+    const tg = window.Telegram.WebApp;
+    
+    async function initTelegramUser() {
+        tg.ready();
+        tg.expand();
+        
+        const user = await new Promise((resolve) => {
+            if (tg.initDataUnsafe?.user) {
+                resolve(tg.initDataUnsafe.user);
+                return;
+            }
+            let attempts = 0;
+            const maxAttempts = 50;
+            const checkInterval = setInterval(() => {
+                attempts++;
+                if (tg.initDataUnsafe?.user) {
+                    clearInterval(checkInterval);
+                    resolve(tg.initDataUnsafe.user);
+                } else if (attempts >= maxAttempts) {
+                    clearInterval(checkInterval);
+                    resolve(null);
+                }
+            }, 100);
+        });
+        
+        if (user) {
+            const userId = user.id;
+            const userName = user.first_name;
+            const userPhoto = user.photo_url;
+            localStorage.setItem('cached_user_id', String(userId));
+            localStorage.setItem('cached_user_name', String(userName));
+            if (userPhoto) localStorage.setItem('cached_user_photo', userPhoto);
+            return { id: userId, name: userName, photo: userPhoto };
+        }
+        
+        const cachedId = localStorage.getItem('cached_user_id');
+        const cachedName = localStorage.getItem('cached_user_name');
+        const cachedPhoto = localStorage.getItem('cached_user_photo');
+        
+        if (cachedId && cachedId !== 'undefined' && cachedId !== 'null') {
+            return { id: parseInt(cachedId), name: cachedName || "Игрок", photo: cachedPhoto };
+        }
+        
+        return { id: Math.floor(Math.random() * 900000) + 100000, name: "Гость", photo: null };
+    }
+    
+    // ==================== ИНИЦИАЛИЗАЦИЯ ИГРЫ ====================
+    let player = {
+        id: null,
+        name: "Игрок",
+        photo: null,
+        level: 1, exp: 0, expToNext: 100, leaves: 500, stars: 0, tapPower: 1,
+        energy: 100, maxEnergy: 100, lastEnergyUpdate: Date.now(), totalLeaves: 0, totalTaps: 0,
+        battlesWon: 0, dailyStreak: 1, lastDailyClaim: null, hasPremium: false,
+        invitesLeft: Infinity, refEarnings: 0, friends: [],
+        boosts: { doubleTap: { active: false, endTime: 0 }, energyBoost: { active: false, endTime: 0 }, autoTap: { active: false, endTime: 0 } },
+        dailyTasks: { tap50: false, tap100: false, inviteFriend: false, tournamentWin: false },
+        challenges: { level5: false, level10: false, totalTaps1000: false, tapMaster: false },
+        maxEnergyUpgradeCount: 0 
+    };
+
+    let tournament = {
+        active: false, startTime: null, endTime: null, duration: 60, myTaps: 0, participants: [],
+        todayAttempts: 0, maxAttemptsPerDay: 3, lastAttemptDate: null,
+        rewards: { 1: { leaves: 5000 }, 2: { leaves: 4000 }, 3: { leaves: 3000 }, 4: { leaves: 2000 }, 5: { leaves: 1000 }, "top10": { leaves: 100 }, "participant": { leaves: 50 } }
+    };
+    
+    // === ФУНКЦИИ ДЛЯ РАБОТЫ С API ===
+    async function saveToAPI() {
+        if (!player.id || player.id < 1000000) return;
+        try {
+            await fetch(`${API_BASE}/api/player/save`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    user_id: player.id, name: player.name, photo: player.photo,
+                    leaves: player.leaves, stars: player.stars, level: player.level,
+                    exp: player.exp, tap_power: player.tapPower, energy: player.energy,
+                    max_energy: player.maxEnergy, has_premium: player.hasPremium,
+                    daily_streak: player.dailyStreak, total_taps: player.totalTaps,
+                    total_leaves: player.totalLeaves, battles_won: player.battlesWon,
+                    boosts: player.boosts, daily_tasks: player.dailyTasks,
+                    challenges: player.challenges, last_daily_claim: player.lastDailyClaim,
+                    last_energy_update: new Date().toISOString(),
+                    max_energy_upgrade_count: player.maxEnergyUpgradeCount,
+                    ref_earnings: player.refEarnings
+                })
+            });
+        } catch(e) { console.log('⚠️ Ошибка сохранения:', e); }
+    }
+    
+    async function loadFromAPI() {
+        if (!player.id) return false;
+        try {
+            const response = await fetch(`${API_BASE}/api/player/${player.id}`);
+            if (response.ok) {
+                const data = await response.json();
+                player.leaves = data.leaves || 500;
+                player.stars = data.stars || 0;
+                player.level = data.level || 1;
+                player.exp = data.exp || 0;
+                player.tapPower = data.tap_power || 1;
+                player.energy = data.energy || 100;
+                player.maxEnergy = data.max_energy || 100;
+                player.hasPremium = data.has_premium || false;
+                player.dailyStreak = data.daily_streak || 1;
+                player.totalTaps = data.total_taps || 0;
+                player.totalLeaves = data.total_leaves || 0;
+                player.battlesWon = data.battles_won || 0;
+                player.maxEnergyUpgradeCount = data.max_energy_upgrade_count || 0;
+                player.refEarnings = data.ref_earnings || 0;
+                player.lastDailyClaim = data.last_daily_claim || null;
+                if (data.boosts) player.boosts = data.boosts;
+                if (data.daily_tasks) player.dailyTasks = data.daily_tasks;
+                if (data.challenges) player.challenges = data.challenges;
+                player.lastEnergyUpdate = Date.now();
+                return true;
+            } else if (response.status === 404) {
+                await fetch(`${API_BASE}/api/player/register?user_id=${player.id}&name=${encodeURIComponent(player.name)}`, { method: 'POST' });
+                return true;
+            }
+        } catch(e) { console.log('⚠️ API не доступен'); }
+        return false;
+    }
+    
+    async function loadTournamentParticipants() {
+        try {
+            const response = await fetch(`${API_BASE}/api/tournament/participants`);
+            if (response.ok) {
+                const data = await response.json();
+                tournament.participants = data;
+            }
+        } catch(e) {}
+    }
+    
+    async function saveTournamentParticipant() {
+        try {
+            await fetch(`${API_BASE}/api/tournament/save`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    user_id: player.id,
+                    name: player.name,
+                    photo: player.photo,
+                    taps: tournament.myTaps
+                })
+            });
+        } catch(e) {}
+    }
+    
+    // === УВЕДОМЛЕНИЕ БОТА О ПОКУПКЕ ===
+    async function notifyBot(item, amount) {
+        try {
+            await fetch(`${API_BASE}/api/payment_success`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    user_id: player.id,
+                    item: item,
+                    amount: amount
+                })
+            });
+            console.log('✅ Бот уведомлён о покупке:', item);
+        } catch(e) {
+            console.log('⚠️ Не удалось уведомить бота:', e);
+        }
+    }
+    
+    // === Обновление активных бустов ===
+    function updateActiveBoosts() {
+        const container = document.getElementById('activeBoosts');
+        if (!container) return;
+        const now = Date.now();
+        let html = '';
+        if (player.boosts.doubleTap.active && now < player.boosts.doubleTap.endTime) {
+            let remaining = Math.ceil((player.boosts.doubleTap.endTime - now) / 60000);
+            html += `<div class="boost-badge">✨ Двойной тап: ${remaining} мин</div>`;
+        }
+        if (player.boosts.autoTap.active && now < player.boosts.autoTap.endTime) {
+            let remaining = Math.ceil((player.boosts.autoTap.endTime - now) / 3600000);
+            html += `<div class="boost-badge">🤖 Авто-тап: ${remaining} ч</div>`;
+        }
+        if (player.boosts.energyBoost.active && now < player.boosts.energyBoost.endTime) {
+            let remaining = Math.ceil((player.boosts.energyBoost.endTime - now) / 3600000);
+            html += `<div class="boost-badge">⚡ Ускоренная энергия: ${remaining} ч</div>`;
+        }
+        if (html === '') html = '<div style="opacity:0.5; width:100%; text-align:center;">Нет активных бустов</div>';
+        container.innerHTML = html;
+    }
+    
+    // === Обновление ежедневного таймера ===
+    let dailyTimerInterval;
+    function updateDailyTimer() {
+        const timerDiv = document.getElementById('dailyTimer');
+        if (!timerDiv) return;
+        
+        if (!player.lastDailyClaim) {
+            timerDiv.innerHTML = '🎁 Бонус доступен!';
+            return;
+        }
+        
+        const lastClaim = new Date(player.lastDailyClaim);
+        const nextClaim = new Date(lastClaim.getTime() + 24 * 60 * 60 * 1000);
+        const now = new Date();
+        
+        if (now >= nextClaim) {
+            timerDiv.innerHTML = '🎁 Бонус доступен!';
+        } else {
+            const diff = nextClaim - now;
+            const hours = Math.floor(diff / (60 * 60 * 1000));
+            const minutes = Math.floor((diff % (60 * 60 * 1000)) / (60 * 1000));
+            const seconds = Math.floor((diff % (60 * 1000)) / 1000);
+            timerDiv.innerHTML = `⏰ Следующий бонус через: ${hours}ч ${minutes}м ${seconds}с`;
+        }
+    }
+    
+    // === Функции игры ===
+    function loadTournamentData() { 
+        const saved = localStorage.getItem(`koala_tournament_${player.id}`); 
+        if(saved){ const d=JSON.parse(saved); tournament.todayAttempts=d.todayAttempts||0; tournament.lastAttemptDate=d.lastAttemptDate; tournament.myTaps=d.myTaps||0; } 
+        loadTournamentLeaderboard(); 
+    }
+    function saveTournamentData() { 
+        localStorage.setItem(`koala_tournament_${player.id}`, JSON.stringify({ todayAttempts: tournament.todayAttempts, lastAttemptDate: tournament.lastAttemptDate, myTaps: tournament.myTaps })); 
+    }
+    function loadTournamentLeaderboard() { 
+        const all = localStorage.getItem('koala_tournament_all'); 
+        if(all) tournament.participants = JSON.parse(all); 
+        else tournament.participants = []; 
+        const existing = tournament.participants.find(p=>p.id==player.id); 
+        if(existing){ existing.taps=tournament.myTaps; existing.name=player.name; existing.photo=player.photo; }
+        tournament.participants.sort((a,b)=>b.taps-a.taps); 
+        saveTournamentLeaderboard(); 
+    }
+    function saveTournamentLeaderboard() { 
+        localStorage.setItem('koala_tournament_all', JSON.stringify(tournament.participants.slice(0,100))); 
+    }
+    function canStartTournament() { 
+        const today = new Date().toDateString(); 
+        if(tournament.lastAttemptDate !== today) return true; 
+        return tournament.todayAttempts < tournament.maxAttemptsPerDay; 
+    }
+    function getRemainingAttempts() { 
+        const today = new Date().toDateString(); 
+        if(tournament.lastAttemptDate !== today) return tournament.maxAttemptsPerDay; 
+        return tournament.maxAttemptsPerDay - tournament.todayAttempts; 
+    }
+    function startTournament() { 
+        if(!canStartTournament()){ tg.showPopup({title:"Лимит!",message:`Только ${tournament.maxAttemptsPerDay} раза в день.`,buttons:[{type:"ok"}]}); return; } 
+        if(tournament.active){ tg.showPopup({title:"Уже идёт!",message:"Заверши текущий турнир",buttons:[{type:"ok"}]}); return; } 
+        tournament.active=true; tournament.startTime=Date.now(); tournament.endTime=Date.now()+tournament.duration*1000; tournament.myTaps=0; 
+        tg.showPopup({title:"🏆 ТУРНИР НАЧАЛСЯ!",message:`${tournament.duration} секунд тапай!`,buttons:[{type:"ok"}]}); 
+        updateTournamentUI(); startTournamentTimer(); 
+    }
+    let tournamentInterval=null;
+    function startTournamentTimer(){ 
+        if(tournamentInterval) clearInterval(tournamentInterval); 
+        tournamentInterval=setInterval(()=>{ 
+            if(!tournament.active){ clearInterval(tournamentInterval); return; } 
+            const now=Date.now(); 
+            if(now>=tournament.endTime){ endTournament(); clearInterval(tournamentInterval); } 
+            updateTournamentTimer(); 
+        },100); 
+    }
+    function updateTournamentTimer(){ 
+        if(!tournament.active){ document.getElementById('tournamentTimer').innerHTML=`До конца: --:--`; return; } 
+        const remaining=Math.max(0,Math.ceil((tournament.endTime-Date.now())/1000)); 
+        const btn=document.getElementById('tournamentJoinBtn'); 
+        if(remaining>0){ 
+            btn.innerHTML=`⚡ ТУРНИР ИДЁТ! Осталось: ${remaining} сек (${tournament.myTaps} тапов)`; 
+            btn.classList.add('disabled'); 
+            document.getElementById('tournamentTimer').innerHTML=`⏱️ ${remaining} сек`; 
+        }else{ 
+            const remAttempts = getRemainingAttempts(); 
+            btn.innerHTML=`⚡ УЧАСТВОВАТЬ (${remAttempts}/${tournament.maxAttemptsPerDay} сегодня)`; 
+            btn.classList.remove('disabled'); 
+            document.getElementById('tournamentTimer').innerHTML=`До конца: --:--`; 
+        } 
+    }
+    function tournamentTap(){ 
+        if(!tournament.active) return; 
+        if(Date.now()>=tournament.endTime){ endTournament(); return; } 
+        tournament.myTaps++; 
+        document.getElementById('tournamentMyTaps').innerHTML=tournament.myTaps; 
+        const effect = document.createElement('div'); effect.className='tap-effect-number'; effect.innerHTML=`🏆 +1 🏆`; effect.style.left=(window.innerWidth/2-30)+'px'; effect.style.top='200px'; effect.style.color='#FF6600'; document.body.appendChild(effect); setTimeout(()=>effect.remove(),500); 
+    }
+    function endTournament(){ 
+        if(!tournament.active) return; 
+        tournament.active=false; 
+        const today=new Date().toDateString(); 
+        if(tournament.lastAttemptDate!==today) tournament.lastAttemptDate=today, tournament.todayAttempts=1; 
+        else tournament.todayAttempts++; 
+        const existing=tournament.participants.find(p=>p.id==player.id); 
+        if(existing) existing.taps=Math.max(existing.taps,tournament.myTaps); 
+        else tournament.participants.push({id:player.id,name:player.name,photo:player.photo,taps:tournament.myTaps}); 
+        tournament.participants.sort((a,b)=>b.taps-a.taps); 
+        saveTournamentLeaderboard(); 
+        saveTournamentParticipant();
+        const rank=tournament.participants.findIndex(p=>p.id==player.id)+1; 
+        let reward=null; 
+        if(rank===1) reward=tournament.rewards[1]; 
+        else if(rank===2) reward=tournament.rewards[2]; 
+        else if(rank===3) reward=tournament.rewards[3]; 
+        else if(rank===4) reward=tournament.rewards[4];
+        else if(rank===5) reward=tournament.rewards[5];
+        else if(rank<=10) reward=tournament.rewards.top10; 
+        else reward=tournament.rewards.participant; 
+        if(reward){ 
+            let leafReward=reward.leaves; 
+            if(player.hasPremium) leafReward*=2; 
+            player.leaves+=leafReward; 
+            tg.showPopup({title:"🏆 ТУРНИР ЗАВЕРШЁН!",message:`Место: ${rank} из ${tournament.participants.length}\nТапов: ${tournament.myTaps}\nНаграда: +${leafReward}🍃`,buttons:[{type:"ok"}]}); 
+            if(rank===1){ 
+                player.battlesWon++;
+                if(!player.dailyTasks.tournamentWin) player.dailyTasks.tournamentWin=true, player.leaves+=500; 
+            } 
+        } 
+        saveTournamentData(); 
+        updateUI(); 
+        updateTournamentUI(); 
+        updateTournamentLeaderboardDisplay(); 
+        const remAttempts = getRemainingAttempts(); 
+        document.getElementById('tournamentJoinBtn').innerHTML=`⚡ УЧАСТВОВАТЬ (${remAttempts}/${tournament.maxAttemptsPerDay} сегодня)`; 
+        document.getElementById('tournamentJoinBtn').classList.remove('disabled'); 
+    }
+    function updateTournamentUI(){ 
+        document.getElementById('tournamentMyTaps').innerHTML=tournament.myTaps; 
+        updateTournamentLeaderboardDisplay(); 
+        const remaining=getRemainingAttempts(); 
+        const btn=document.getElementById('tournamentJoinBtn'); 
+        if(!tournament.active) btn.innerHTML=`⚡ УЧАСТВОВАТЬ (${remaining}/${tournament.maxAttemptsPerDay} сегодня)`, btn.classList.remove('disabled'); 
+        const progressPercent=((tournament.maxAttemptsPerDay-remaining)/tournament.maxAttemptsPerDay)*100; 
+        document.getElementById('tournamentProgress').style.width=`${progressPercent}%`; 
+    }
+    function updateTournamentLeaderboardDisplay(){ 
+        const topParticipants=tournament.participants.slice(0,5); 
+        const listDiv=document.getElementById('tournamentRankList'); 
+        if(listDiv) listDiv.innerHTML=topParticipants.map((p,idx)=>`<div class="tournament-rank-item"><span style="display:flex;align-items:center;">${idx+1}. ${p.photo ? `<img src="${p.photo}" style="width:24px;height:24px;border-radius:50%;margin:0 8px;">` : '<span style="margin:0 8px;">🐨</span>'} ${p.name}</span><span style="color:#FF6600; font-weight:bold;">${p.taps} тапов</span></div>`).join('')||'<div style="opacity:0.5;">Нет участников</div>'; 
+        if(tournament.participants.length>0) document.getElementById('tournamentLeader').innerHTML=tournament.participants[0].name, document.getElementById('tournamentLeaderTaps').innerHTML=tournament.participants[0].taps; 
+    }
+    function updateEnergy(){ 
+        const now=Date.now(); 
+        const secondsPassed=Math.floor((now-player.lastEnergyUpdate)/1000); 
+        let regenRate=0.5; 
+        if(player.boosts.energyBoost.active && now<player.boosts.energyBoost.endTime) regenRate=1; 
+        if(player.hasPremium) regenRate*=2; 
+        player.energy=Math.min(player.maxEnergy,player.energy+secondsPassed*regenRate); 
+        player.lastEnergyUpdate=now; 
+        const percent=(player.energy/player.maxEnergy)*100; 
+        document.getElementById('energyFill').style.width=`${percent}%`; 
+        document.getElementById('energyText').innerHTML=`${Math.floor(player.energy)}/${player.maxEnergy}`; 
+    }
+    function createTapEffect(x,y,value){ 
+        const e=document.createElement('div'); e.className='tap-effect-number'; e.innerHTML=`+${value} 🍃`; e.style.left=(x-30)+'px'; e.style.top=(y-40)+'px'; document.body.appendChild(e); setTimeout(()=>e.remove(),600); 
+    }
+    
+    // === ГЛАВНАЯ ФУНКЦИЯ TAP ===
+    function tap(){ 
+        if(player.energy<1){ 
+            tg.showPopup({title:"😴 Коала устала!",message:"Нужна энергия",buttons:[{type:"ok"}]}); 
+            return; 
+        } 
+        let gain=player.tapPower; 
+        if(player.boosts.doubleTap.active && Date.now()<player.boosts.doubleTap.endTime) gain*=2; 
+        if(player.hasPremium) gain*=2; 
+        player.energy-=1; 
+        player.leaves+=gain; 
+        player.totalLeaves+=gain; 
+        player.totalTaps+=1; 
+        addExp(gain); 
+        updateUI(); 
+        updateEnergy(); 
+        if(tournament.active) tournamentTap(); 
+        const koalaCard = document.querySelector('.koala-card'); 
+        koalaCard.style.transform='scale(0.97)'; 
+        setTimeout(()=>koalaCard.style.transform='',100); 
+        const rect=koalaCard.getBoundingClientRect(); 
+        createTapEffect(rect.left+rect.width/2,rect.top+rect.height/2,gain); 
+        if(player.totalTaps>=50 && !player.dailyTasks.tap50) checkTask('tap50'); 
+        if(player.totalTaps>=100 && !player.dailyTasks.tap100) checkTask('tap100'); 
+        if(player.totalTaps>=1000 && !player.challenges.totalTaps1000) checkChallenge('totalTaps1000');
+        if(player.totalTaps>=10000 && !player.challenges.tapMaster) checkChallenge('tapMaster');
+        
+        saveToAPI();
+        saveGame();
+    }
+    
+    function addExp(amount){ if(player.hasPremium) amount*=2; player.exp+=amount; while(player.exp>=player.expToNext){ player.exp-=player.expToNext; player.level++; player.expToNext=Math.floor(player.expToNext*1.2); if(player.level%10===0) player.tapPower+=0.5; tg.showPopup({title:"🎉 УРОВЕНЬ ПОВЫШЕН!",message:`Уровень ${player.level}! Сила тапа: ${player.tapPower}`,buttons:[{type:"ok"}]}); if(player.level>=5 && !player.challenges.level5) checkChallenge('level5'); if(player.level>=10 && !player.challenges.level10) checkChallenge('level10'); } }
+    function checkTask(taskId){ if(!player.dailyTasks[taskId]){ player.dailyTasks[taskId]=true; let reward={tap50:100,tap100:200,inviteFriend:300,tournamentWin:500}[taskId]; if(player.hasPremium) reward*=2; player.leaves+=reward; tg.showPopup({title:"✅ Задание выполнено!",message:`+${reward} 🍃`,buttons:[{type:"ok"}]}); updateUI(); saveGame(); saveToAPI(); } }
+    function checkChallenge(challengeId){ if(!player.challenges[challengeId]){ player.challenges[challengeId]=true; let reward={level5:500,level10:1000,totalTaps1000:500,tapMaster:5000}[challengeId]; if(player.hasPremium) reward*=2; player.leaves+=reward; tg.showPopup({title:"🏆 Челлендж завершен!",message:`+${reward} 🍃`,buttons:[{type:"ok"}]}); updateUI(); saveGame(); saveToAPI(); } }
+    function claimDaily(){ 
+        const now = new Date();
+        if(player.lastDailyClaim){
+            const lastClaim = new Date(player.lastDailyClaim);
+            const hoursSince = (now - lastClaim) / (1000 * 60 * 60);
+            if(hoursSince < 24){
+                const remainingHours = Math.ceil(24 - hoursSince);
+                tg.showPopup({title:"⏰ Рано!",message:`Следующий бонус через ${remainingHours} часов!`,buttons:[{type:"ok"}]});
+                return;
+            }
+        }
+        
+        let bonus = 100 * player.dailyStreak;
+        if(player.hasPremium) bonus *= 2;
+        player.leaves += bonus;
+        player.dailyStreak++;
+        player.lastDailyClaim = now.toISOString();
+        tg.showPopup({title:"🎁 Ежедневный бонус!",message:`+${bonus} 🍃\nСтрик: ${player.dailyStreak} дней!`,buttons:[{type:"ok"}]});
+        updateUI();
+        saveGame();
+        saveToAPI();
+        if(dailyTimerInterval) clearInterval(dailyTimerInterval);
+        dailyTimerInterval = setInterval(updateDailyTimer, 1000);
+        updateDailyTimer();
+    }
+    function buyWithLeaves(item, price, callback) { 
+        if (player.leaves >= price) { 
+            player.leaves -= price; 
+            if (callback) callback(); 
+            updateUI(); 
+            saveGame(); 
+            saveToAPI(); 
+            tg.showPopup({title:"✅ Покупка!",message:`Вы купили ${item} за ${price} 🍃`,buttons:[{type:"ok"}]}); 
+            return true; 
+        } else { 
+            tg.showPopup({title:"Не хватает листьев!",message:`Нужно ${price} 🍃`,buttons:[{type:"ok"}]}); 
+            return false; 
+        } 
+    }
+    function buyEnergy(){ let missingEnergy = player.maxEnergy - player.energy; let price = Math.ceil(missingEnergy * 0.5); if(price <= 0) { tg.showPopup({title:"Энергия полна!",message:"У тебя уже полная энергия",buttons:[{type:"ok"}]}); return; } buyWithLeaves("восстановление энергии", price, () => { player.energy = player.maxEnergy; updateEnergy(); }); }
+    function buyTapUpgrade(){ let price=Math.floor(100*player.tapPower); buyWithLeaves("улучшение силы тапа", price, () => { player.tapPower++; }); }
+    
+    function buyMaxEnergyUpgrade(){ 
+        let upgradeCount = player.maxEnergyUpgradeCount || 0;
+        let price = 500 + (upgradeCount * 500);
+        
+        if(player.leaves>=price){ 
+            player.leaves-=price; 
+            player.maxEnergy += 50;
+            player.maxEnergyUpgradeCount = upgradeCount + 1;
+            updateUI(); 
+            saveGame(); 
+            saveToAPI(); 
+            tg.showPopup({title:"⚡ Макс. энергия +50!",message:`Новая максимальная энергия: ${player.maxEnergy}`,buttons:[{type:"ok"}]}); 
+        } else { 
+            tg.showPopup({title:"Не хватает листьев!",message:`Нужно ${price} 🍃`,buttons:[{type:"ok"}]}); 
+        } 
+    }
+    
+    // ==================== ПОКУПКИ ЗА TELEGRAM STARS (ЧЕРЕЗ API БОТА) ====================
+    async function createInvoice(item, amount, title, description) {
+        try {
+            const response = await fetch(`${API_BASE}/api/create_invoice`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    user_id: player.id,
+                    item: item,
+                    amount: amount,
+                    title: title,
+                    description: description
+                })
+            });
+            const data = await response.json();
+            if (!data.invoice_link) {
+                console.error('Нет invoice_link в ответе:', data);
+                return null;
+            }
+            return data.invoice_link;
+        } catch(e) {
+            console.error('Ошибка создания счёта:', e);
+            return null;
+        }
+    }
+    
+    async function buyDoubleTapBoost(){ 
+        const invoiceLink = await createInvoice('doubleTap', 49, '✨ Двойной тап', 'x2 листьев за каждый тап (1 час)');
+        if (invoiceLink) {
+            tg.openInvoice(invoiceLink, (status) => {
+                if (status === 'paid') {
+                    player.boosts.doubleTap.active = true;
+                    player.boosts.doubleTap.endTime = Date.now() + 3600000;
+                    updateUI();
+                    saveToAPI();
+                    notifyBot('doubleTap', 49);
+                    tg.showPopup({ title: '✅ Буст активирован!', message: 'Двойной тап на 1 час!' });
+                } else if (status === 'failed') {
+                    tg.showPopup({ title: '❌ Ошибка', message: 'Платёж не прошёл.' });
+                }
+            });
+        } else {
+            tg.showPopup({ title: '❌ Ошибка', message: 'Не удалось создать счёт' });
+        }
+    }
+    
+    async function buyAutoTapBoost(){ 
+        const invoiceLink = await createInvoice('autoTap', 99, '🤖 Авто-тап', 'Коала тапает сама (24 часа)');
+        if (invoiceLink) {
+            tg.openInvoice(invoiceLink, (status) => {
+                if (status === 'paid') {
+                    player.boosts.autoTap.active = true;
+                    player.boosts.autoTap.endTime = Date.now() + 86400000;
+                    updateUI();
+                    saveToAPI();
+                    notifyBot('autoTap', 99);
+                    tg.showPopup({ title: '✅ Буст активирован!', message: 'Авто-тап на 24 часа!' });
+                } else if (status === 'failed') {
+                    tg.showPopup({ title: '❌ Ошибка', message: 'Платёж не прошёл.' });
+                }
+            });
+        } else {
+            tg.showPopup({ title: '❌ Ошибка', message: 'Не удалось создать счёт' });
+        }
+    }
+    
+    async function buyEnergyBoost(){ 
+        const invoiceLink = await createInvoice('energyBoost', 79, '⚡ Ускоренная энергия', 'x2 регенерация энергии (12 часов)');
+        if (invoiceLink) {
+            tg.openInvoice(invoiceLink, (status) => {
+                if (status === 'paid') {
+                    player.boosts.energyBoost.active = true;
+                    player.boosts.energyBoost.endTime = Date.now() + 43200000;
+                    updateUI();
+                    saveToAPI();
+                    notifyBot('energyBoost', 79);
+                    tg.showPopup({ title: '✅ Буст активирован!', message: 'Ускоренная энергия на 12ч!' });
+                } else if (status === 'failed') {
+                    tg.showPopup({ title: '❌ Ошибка', message: 'Платёж не прошёл.' });
+                }
+            });
+        } else {
+            tg.showPopup({ title: '❌ Ошибка', message: 'Не удалось создать счёт' });
+        }
+    }
+    
+    async function buyPremium(){ 
+        const invoiceLink = await createInvoice('premium', 299, '🐨 Koala Premium', 'Двойные награды, быстрая энергия, эксклюзивные задания');
+        if (invoiceLink) {
+            tg.openInvoice(invoiceLink, (status) => {
+                if (status === 'paid') {
+                    player.hasPremium = true;
+                    updateUI();
+                    saveToAPI();
+                    closePremiumModal();
+                    notifyBot('premium', 299);
+                    tg.showPopup({ title: '✅ Премиум активирован!', message: 'Двойные награды навсегда!' });
+                } else if (status === 'failed') {
+                    tg.showPopup({ title: '❌ Ошибка', message: 'Платёж не прошёл.' });
+                }
+            });
+        } else {
+            tg.showPopup({ title: '❌ Ошибка', message: 'Не удалось создать счёт' });
+        }
+    }
+    
+    function showPremiumModal(){ document.getElementById('premiumModal').style.display='flex'; }
+    function closePremiumModal(){ document.getElementById('premiumModal').style.display='none'; }
+    
+    // ==================== ПРИГЛАШЕНИЕ ДРУЗЕЙ ====================
+    function inviteFriend(){ 
+        const inviteLink = `https://t.me/${BOT_USERNAME}?start=${player.id}`;
+        tg.showPopup({
+            title:"🔗 Пригласи друга!",
+            message:`Твоя реферальная ссылка:\n${inviteLink}\n\nОтправь другу и получи:\n+1000 🍃 за друга\n+5000 🍃 если с премиумом!`,
+            buttons:[
+                {id:"copy",type:"default",text:"📋 Копировать ссылку"},
+                {id:"share",type:"default",text:"📤 Поделиться"},
+                {type:"cancel",text:"Закрыть"}
+            ]
+        },(buttonId)=>{
+            if(buttonId==="copy"){
+                navigator.clipboard?.writeText(inviteLink);
+                tg.showPopup({title:"✅ Готово!",message:"Ссылка скопирована!"});
+            }else if(buttonId==="share"){
+                tg.openTelegramLink(`https://t.me/share/url?url=${encodeURIComponent(inviteLink)}&text=${encodeURIComponent('🐨 Играй со мной в Koala Taps! Тапай по коале!')}`);
+            }
+        });
+    }
+    
+    function saveGame(){ const saveData={...player, maxEnergyUpgradeCount: player.maxEnergyUpgradeCount}; delete saveData.lastEnergyUpdate; localStorage.setItem(`koala_quest_${player.id}`,JSON.stringify(saveData)); }
+    async function loadGame(){ 
+        const apiLoaded = await loadFromAPI();
+        if (!apiLoaded) {
+            const saved = localStorage.getItem(`koala_quest_${player.id}`); 
+            if(saved){ 
+                const data=JSON.parse(saved); 
+                Object.assign(player,data); 
+                player.lastEnergyUpdate=Date.now(); 
+            } 
+        }
+        await loadTournamentParticipants();
+        loadTournamentData(); 
+        updateLeaderboard(); 
+        updateUI(); 
+        updateDailyTimer();
+        dailyTimerInterval = setInterval(updateDailyTimer, 1000);
+    }
+    function updateLeaderboard(){ 
+        let leaderboard=[{name:"🐨 KoalaKing",level:42,leaves:150000,photo:null},{name:"🐨 EucalyptusPro",level:38,leaves:98000,photo:null},{name:"🐨 SleepyMaster",level:35,leaves:87000,photo:null},{name:player.name,level:player.level,leaves:player.totalLeaves,isMe:true,photo:player.photo}].sort((a,b)=>b.level-a.level); 
+        const listDiv=document.getElementById('leaderboardList'); 
+        if(listDiv) listDiv.innerHTML=leaderboard.map((user,idx)=>`<div class="leaderboard-item" style="${user.isMe?'background:rgba(255,215,0,0.25); border-radius:20px;':''}"><div class="rank">${idx+1}</div>${user.photo ? `<img src="${user.photo}" alt="">` : '<div style="width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,#FFD700,#FFA500);display:flex;align-items:center;justify-content:center;">🐨</div>'}<div style="flex:1;">${user.name} ${user.isMe?'(Вы)':''}</div><div>🏆 Ур.${user.level}</div></div>`).join(''); 
+    }
+    function updateUI(){ 
+        document.getElementById('username').innerHTML=player.name; 
+        document.getElementById('levelText').innerHTML=`LVL ${player.level}`; 
+        document.getElementById('leaves').innerHTML=Math.floor(player.leaves); 
+        document.getElementById('stars').innerHTML=player.stars; 
+        document.getElementById('currentLevel').innerHTML=player.level; 
+        document.getElementById('currentExp').innerHTML=Math.floor(player.exp); 
+        document.getElementById('nextExp').innerHTML=player.expToNext; 
+        document.getElementById('expFill').style.width=`${(player.exp/player.expToNext)*100}%`; 
+        document.getElementById('totalLeaves').innerHTML=Math.floor(player.totalLeaves); 
+        document.getElementById('totalTaps').innerHTML=player.totalTaps; 
+        document.getElementById('battlesWon').innerHTML=player.battlesWon; 
+        document.getElementById('dailyStreak').innerHTML=player.dailyStreak; 
+        document.getElementById('dailyBonus').innerHTML=100*player.dailyStreak; 
+        document.getElementById('hasPremium').innerHTML=player.hasPremium?"✅ АКТИВЕН":"❌"; 
+        document.getElementById('refEarnings').innerHTML=Math.floor(player.refEarnings); 
+        
+        if(player.photo){
+            const avatarDiv = document.getElementById('avatar');
+            avatarDiv.innerHTML = `<img src="${player.photo}" alt="">`;
+        }
+        
+        updateTasksUI(); 
+        updateShopUI(); 
+        updateActiveBoosts();
+        updateEnergy(); 
+        updateLeaderboard(); 
+        updateTournamentUI(); 
+        updateDailyTimer();
+        
+        let claimBtn = document.getElementById('claimDaily'); 
+        if(claimBtn) { 
+            if(player.lastDailyClaim){
+                const lastClaim = new Date(player.lastDailyClaim);
+                const now = new Date();
+                const hoursSince = (now - lastClaim) / (1000 * 60 * 60);
+                if(hoursSince < 24) claimBtn.classList.add('btn-completed'); 
+                else claimBtn.classList.remove('btn-completed');
+            } else {
+                claimBtn.classList.remove('btn-completed');
+            }
+        }
+        saveGame(); 
+    }
+    function updateTasksUI(){ 
+        const dailyGrid=document.getElementById('dailyTasksGrid'); if(dailyGrid) dailyGrid.innerHTML=`<div class="task-item"><div class="task-icon">👆</div><div class="task-name">Сделать 50 тапов</div><div class="task-reward">+100 🍃</div><button class="btn ${player.dailyTasks.tap50?'btn-completed':''}" ${player.dailyTasks.tap50?'disabled':''} onclick="checkTask('tap50')">${player.dailyTasks.tap50?'✅ Выполнено':'Выполнить'}</button></div><div class="task-item"><div class="task-icon">👆👆</div><div class="task-name">Сделать 100 тапов</div><div class="task-reward">+200 🍃</div><button class="btn ${player.dailyTasks.tap100?'btn-completed':''}" ${player.dailyTasks.tap100?'disabled':''} onclick="checkTask('tap100')">${player.dailyTasks.tap100?'✅ Выполнено':'Выполнить'}</button></div><div class="task-item"><div class="task-icon">👥</div><div class="task-name">Пригласить друга</div><div class="task-reward">+300 🍃</div><button class="btn ${player.dailyTasks.inviteFriend?'btn-completed':''}" ${player.dailyTasks.inviteFriend?'disabled':''} onclick="checkTask('inviteFriend')">${player.dailyTasks.inviteFriend?'✅ Выполнено':'Выполнить'}</button></div><div class="task-item"><div class="task-icon">🏆</div><div class="task-name">Победить в турнире</div><div class="task-reward">+500 🍃</div><button class="btn ${player.dailyTasks.tournamentWin?'btn-completed':''}" ${player.dailyTasks.tournamentWin?'disabled':''} onclick="checkTask('tournamentWin')">${player.dailyTasks.tournamentWin?'✅ Выполнено':'Выполнить'}</button></div>`; 
+        const challengesGrid=document.getElementById('challengesGrid'); if(challengesGrid) challengesGrid.innerHTML=`<div class="task-item"><div class="task-icon">🎋</div><div class="task-name">Достичь 5 уровня</div><div class="task-reward">+500 🍃</div><button class="btn ${player.challenges.level5?'btn-completed':''}" disabled>${player.challenges.level5?'✅ Выполнено':player.level>=5?'🏆 Забрать!':`${player.level}/5`}</button></div><div class="task-item"><div class="task-icon">🎋🎋</div><div class="task-name">Достичь 10 уровня</div><div class="task-reward">+1000 🍃</div><button class="btn ${player.challenges.level10?'btn-completed':''}" disabled>${player.challenges.level10?'✅ Выполнено':player.level>=10?'🏆 Забрать!':`${player.level}/10`}</button></div><div class="task-item"><div class="task-icon">👆🔥</div><div class="task-name">1000 тапов всего</div><div class="task-reward">+500 🍃</div><button class="btn ${player.challenges.totalTaps1000?'btn-completed':''}" disabled>${player.challenges.totalTaps1000?'✅ Выполнено':`${player.totalTaps}/1000`}</button></div><div class="task-item"><div class="task-icon">👑🔥</div><div class="task-name">Тапальщик (10000 тапов)</div><div class="task-reward">+5000 🍃</div><button class="btn ${player.challenges.tapMaster?'btn-completed':''}" disabled>${player.challenges.tapMaster?'✅ Выполнено':`${player.totalTaps}/10000`}</button></div>`; 
+    }
+    function updateShopUI(){ 
+        const coinShop=document.getElementById('coinShop'); if(coinShop){ 
+            let missingEnergy = player.maxEnergy - player.energy; 
+            let energyPrice = Math.ceil(missingEnergy * 0.5);
+            let maxEnergyUpgradeCount = player.maxEnergyUpgradeCount || 0;
+            let maxEnergyPrice = 500 + (maxEnergyUpgradeCount * 500);
+            let tapUpgradePrice = Math.floor(100*player.tapPower);
+            
+            coinShop.innerHTML=`<div class="shop-item"><div class="shop-icon">🔋</div><div class="shop-name">Восстановить энергию</div><div class="shop-desc">Восстановить ${missingEnergy} ед.</div><div class="shop-price ${player.leaves < energyPrice ? 'shop-price-disabled' : ''}" onclick="buyEnergy()">${energyPrice} 🍃</div></div>
+            <div class="shop-item"><div class="shop-icon">💪</div><div class="shop-name">Улучшить тап</div><div class="shop-desc">+1 🍃 за тап</div><div class="shop-price ${player.leaves < tapUpgradePrice ? 'shop-price-disabled' : ''}" onclick="buyTapUpgrade()">${tapUpgradePrice} 🍃</div></div>
+            <div class="shop-item"><div class="shop-icon">⚡</div><div class="shop-name">Макс. энергия +50</div><div class="shop-desc">Навсегда</div><div class="shop-price ${player.leaves < maxEnergyPrice ? 'shop-price-disabled' : ''}" onclick="buyMaxEnergyUpgrade()">${maxEnergyPrice} 🍃</div></div>`; }
+        const starShop=document.getElementById('starShop'); if(starShop) starShop.innerHTML=`<div class="shop-item"><div class="shop-icon">✨</div><div class="shop-name">Двойной тап</div><div class="shop-desc">x2 за тап (1 час)</div><div class="shop-price shop-price-star" onclick="buyDoubleTapBoost()">49 ⭐</div></div><div class="shop-item"><div class="shop-icon">🤖</div><div class="shop-name">Авто-тап</div><div class="shop-desc">Автоматический тап (24ч)</div><div class="shop-price shop-price-star" onclick="buyAutoTapBoost()">99 ⭐</div></div><div class="shop-item"><div class="shop-icon">⚡⚡</div><div class="shop-name">Ускоренная энергия</div><div class="shop-desc">x2 регенерация (12ч)</div><div class="shop-price shop-price-star" onclick="buyEnergyBoost()">79 ⭐</div></div>`; 
+    }
+    setInterval(()=>{ if(player.boosts.autoTap.active && Date.now()<player.boosts.autoTap.endTime && player.energy>=1) tap(); updateEnergy(); updateUI(); updateActiveBoosts(); },1000);
+    
+    document.querySelectorAll('.tab-btn').forEach(btn => { btn.addEventListener('click', () => { document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active')); btn.classList.add('active'); document.querySelectorAll('.panel').forEach(p => p.classList.remove('active')); document.getElementById(`${btn.dataset.tab}-panel`).classList.add('active'); }); });
+    document.getElementById('koalaTap').addEventListener('click', tap);
+    document.getElementById('claimDaily').addEventListener('click', claimDaily);
+    document.getElementById('inviteFriendBtn').addEventListener('click', inviteFriend);
+    document.getElementById('tournamentJoinBtn').addEventListener('click', startTournament);
+    window.closePremiumModal=closePremiumModal; window.showPremiumModal=showPremiumModal; window.checkTask=checkTask; window.checkChallenge=checkChallenge; window.buyEnergy=buyEnergy; window.buyTapUpgrade=buyTapUpgrade; window.buyDoubleTapBoost=buyDoubleTapBoost; window.buyAutoTapBoost=buyAutoTapBoost; window.buyEnergyBoost=buyEnergyBoost; window.buyPremium=buyPremium; window.buyWithLeaves=buyWithLeaves; window.buyMaxEnergyUpgrade = buyMaxEnergyUpgrade;
+    
+    // ==================== ЗАПУСК ИГРЫ ====================
+    (async () => {
+        const userData = await initTelegramUser();
+        
+        if (userData && userData.id && typeof userData.id === 'number' && !isNaN(userData.id)) {
+            player.id = userData.id;
+            player.name = String(userData.name || 'Игрок');
+            player.photo = userData.photo || null;
+        } else {
+            player.id = Math.floor(Math.random() * 900000) + 100000;
+            player.name = 'Гость';
+            player.photo = null;
+        }
+        
+        await loadGame();
+        updateUI();
+        updateProgress();
+        
+        console.log('✅ Игра запущена! Версия: ' + APP_VERSION);
+    })();
+</script>
+</body>
+</html>
