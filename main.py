@@ -8,12 +8,13 @@ import json
 import sqlite3
 from datetime import datetime
 import time
-import eventlet
 
 # Получаем токен из переменных окружения Render
 BOT_TOKEN = os.environ.get("BOT_TOKEN", "8237220454:AAHIs1zJ_h2db7tbPFu7DJWTpp9_PwoLOls")
 GAME_URL = f"https://koala-bot.onrender.com/?v={int(time.time())}"
-RENDER_URL = os.environ.get("RENDER_EXTERNAL_URL", "https://koala-bot.onrender.com".rstrip('/'))
+RENDER_URL = os.environ.get("RENDER_EXTERNAL_URL", "https://koala-bot.onrender.com")
+if RENDER_URL.endswith('/'):
+    RENDER_URL = RENDER_URL[:-1]
 
 # Создаем бота
 bot = telebot.TeleBot(BOT_TOKEN)
@@ -58,7 +59,6 @@ def init_db():
     )
     ''')
     
-    # НОВОЕ: таблица достижений
     cursor.execute('''
     CREATE TABLE IF NOT EXISTS achievements (
         user_id INTEGER,
@@ -243,13 +243,13 @@ def got_payment(message):
     elif invoice_payload.startswith('energyBoost_'):
         bot.send_message(message.chat.id, "✅ Буст «Ускоренная энергия» активирован на 12 часов!")
 
-# ===== FLASK + SOCKET.IO =====
+# ===== FLASK + SOCKET.IO (threading mode) =====
 app = Flask(__name__)
 CORS(app)
-socketio = SocketIO(app, cors_allowed_origins="*", async_mode='eventlet')
+socketio = SocketIO(app, cors_allowed_origins="*", async_mode='threading')
 
 # Активные турнирные комнаты
-active_tournaments = {}  # {room_id: {participants: {user_id: taps}, start_time, end_time}}
+active_tournaments = {}
 
 # ===== WebSocket для турниров =====
 @socketio.on('join_tournament')
@@ -274,7 +274,6 @@ def on_join(data):
         'photo': user_photo
     }
     
-    # Отправляем всем обновлённый список
     emit('tournament_update', {
         'participants': active_tournaments[room]['participants'],
         'end_time': active_tournaments[room]['end_time']
@@ -291,7 +290,6 @@ def on_tournament_tap(data):
     if room in active_tournaments and str(user_id) in active_tournaments[room]['participants']:
         active_tournaments[room]['participants'][str(user_id)]['taps'] = taps
         
-        # Отправляем обновление всем в комнате
         emit('tournament_update', {
             'participants': active_tournaments[room]['participants'],
             'end_time': active_tournaments[room]['end_time']
@@ -305,7 +303,7 @@ def on_leave(data):
     if room in active_tournaments and str(user_id) in active_tournaments[room]['participants']:
         del active_tournaments[room]['participants'][str(user_id)]
 
-# ===== НОВОЕ: API лидерборда =====
+# ===== API лидерборда =====
 @app.route('/api/leaderboard')
 def api_leaderboard():
     try:
@@ -335,7 +333,7 @@ def api_leaderboard():
         print(f"❌ Ошибка лидерборда: {e}")
         return jsonify([]), 200
 
-# ===== НОВОЕ: API достижений =====
+# ===== API достижений =====
 @app.route('/api/achievements/<int:user_id>')
 def api_achievements(user_id):
     try:
@@ -558,7 +556,7 @@ def webhook():
 
 # ===== ЗАПУСК =====
 if __name__ == "__main__":
-    print('🚀 Запуск бота через Webhook + Socket.IO...')
+    print('🚀 Запуск бота через Webhook + Socket.IO (threading)...')
     
     bot.remove_webhook()
     webhook_url = f"{RENDER_URL}/webhook"
